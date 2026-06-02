@@ -42,15 +42,18 @@ npm install
 cp packages/server/.env.example packages/server/.env   # JWT_SECRET, LDAP_* etc.
 ```
 
+Der Port ist über `PORT` in der `.env` frei wählbar (Default **4000**). Die
+folgenden Beispiele nutzen den Default.
+
 ### Variante A: Ein Server (empfohlen, auch fürs Deployment)
 
 Das gebaute Frontend wird vom Backend mitausgeliefert — alles läuft auf **einem
-Port (:3000)**, ohne Dev-Proxy. Die App ist im Browser direkt unter
-`http://localhost:3000` erreichbar.
+Port (:4000)**, ohne Dev-Proxy. Die App ist im Browser direkt unter
+`http://localhost:4000` erreichbar.
 
 ```bash
 npm run build                                   # u. a. packages/web/dist
-npm run dev --workspace @notentabellen/server   # App + API auf :3000
+npm run dev --workspace @notentabellen/server   # App + API auf :4000
 # oder produktiv: npm run start --workspace @notentabellen/server
 ```
 
@@ -60,12 +63,13 @@ npm run dev --workspace @notentabellen/server   # App + API auf :3000
 ### Variante B: Zwei Dev-Server (Hot-Reload fürs Frontend)
 
 ```bash
-npm run dev --workspace @notentabellen/server   # API auf :3000
-npm run dev --workspace @notentabellen/web      # UI auf :5173 (Proxy → :3000)
+npm run dev --workspace @notentabellen/server   # API auf :4000
+npm run dev --workspace @notentabellen/web      # UI auf :5173 (Proxy → :4000)
 ```
 
 Hier ist die App unter `http://localhost:5173` erreichbar; `/api`-Aufrufe
-werden per Vite-Proxy an `:3000` weitergeleitet.
+werden per Vite-Proxy an `:4000` weitergeleitet. Bei abweichendem `PORT` den
+Proxy mit `API_PORT=<port> npm run dev --workspace @notentabellen/web` starten.
 
 Tests/Checks über alle Pakete: `npm test`, `npm run typecheck`, `npm run build`.
 

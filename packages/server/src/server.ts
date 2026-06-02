@@ -27,7 +27,7 @@ ladeEnvDatei();
 
 /** Server-Einstieg: DB öffnen, migrieren, seeden und HTTP-API mit LDAP-Auth starten. */
 const pfad = process.env['DB_PFAD'] ?? 'notentabellen.sqlite';
-const port = Number(process.env['PORT'] ?? 3000);
+const port = Number(process.env['PORT'] ?? 4000);
 
 const jwtSecret = process.env['JWT_SECRET'];
 if (!jwtSecret) {
