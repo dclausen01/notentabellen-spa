@@ -1,4 +1,5 @@
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { baueApp } from './api/app.js';
 import { LdapAuthenticator, ldapConfigAusEnv } from './auth/ldap.js';
@@ -33,6 +34,19 @@ const jwtSecret = process.env['JWT_SECRET'];
 if (!jwtSecret) {
   console.error('JWT_SECRET fehlt (Umgebungsvariable). Server startet nicht.');
   process.exit(1);
+}
+
+// Verzeichnis der SQLite-Datei sicherstellen — SQLite legt die Datei selbst an,
+// aber nicht den Ordner darüber. Ohne das scheitert der Start mit
+// "unable to open database file", wenn DB_PFAD in ein noch fehlendes
+// Verzeichnis zeigt. Schlägt das Anlegen fehl (z. B. Rechte), klare Meldung.
+if (pfad !== ':memory:') {
+  try {
+    mkdirSync(dirname(pfad), { recursive: true });
+  } catch (err) {
+    console.error(`Datenbankverzeichnis ${dirname(pfad)} konnte nicht angelegt werden:`, err);
+    process.exit(1);
+  }
 }
 
 const db = openDb(pfad);
