@@ -6,11 +6,14 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "db:init": "tsx src/cli/init-db.ts"
+    "db:init": "tsx src/cli/init-db.ts",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "@notentabellen/core": "*",
-    "better-sqlite3": "^11.3.0"
+    "better-sqlite3": "^11.3.0",
+    "fastify": "^4.28.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",

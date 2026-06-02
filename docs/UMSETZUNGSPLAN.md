@@ -316,14 +316,14 @@ GET   /admin/notenskala /admin/wpk-kurse
 
 | M | Inhalt | Ergebnis / „done" |
 | --- | --- | --- |
-| **M0** | Repo-Setup: Monorepo, TS, Lint, Vitest, CI | grünes CI, leere Pakete bauen |
-| **M1** | **Rechenkern** + Golden-Master + Unit-Tests | alle Excel-Sollwerte reproduziert |
-| **M2** | SQLite-Schema, Migrationen, Seed (Bildungsgänge, Fächer, Schemata, Notenskala, WPK) | DB initialisierbar; Seed deckt PiA + regulär ab |
-| **M3** | Fastify-API: Eingabe + Berechnung + Zeugnisansicht (ohne Auth) | lokal nutzbar, API-Tests grün |
+| **M0** ✅ | Repo-Setup: Monorepo, TS, Lint, Vitest, CI | grünes CI, leere Pakete bauen |
+| **M1** ✅ | **Rechenkern** + Golden-Master + Unit-Tests | alle Excel-Sollwerte reproduziert |
+| **M2** ✅ | SQLite-Schema, Migrationen, Seed (Bildungsgänge, Fächer, Schemata, Notenskala, WPK) | DB initialisierbar; Seed deckt PiA + regulär ab |
+| **M3** ✅ | Fastify-API: Eingabe + Berechnung + Zeugnisansicht (ohne Auth) | lokal nutzbar, API-Tests grün |
 | **M4** | Auth/SSO (Nextcloud/LDAP) + Rollen + Lehrauftrag-Filter + Audit-Log | Zugriff erzwungen, auditiert |
 | **M5** | React-Frontend: Eingabemaske + Zeugnisansicht | End-to-end klickbar |
 | **M6** | Admin-UI (Schemata/Gewichte/Lehraufträge/Stammdaten) | Konfiguration ohne Code pflegbar |
 | **M7** | Export (PDF/XLSX), Migration Altdaten, Betriebs-/Backup-Doku | übergabefähig |
 
-**Nächster Schritt:** M0 (Repo-Setup) anlegen und direkt mit **M1
-(Rechenkern + Tests)** beginnen — entsprechend der getroffenen Reihenfolge.
+**Nächster Schritt:** M4 (Auth/SSO Nextcloud/LDAP, Rollen, Lehrauftrag-Filter).
+Das Audit-Log wird bereits ab M3 geschrieben; der Akteur folgt mit der Auth.
