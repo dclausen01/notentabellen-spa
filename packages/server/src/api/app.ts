@@ -24,6 +24,8 @@ import {
   type Rolle,
 } from '../db/stammdaten.js';
 import {
+  aktiveHalbjahreFuerFachKlasse,
+  aktualisiereLehrkraftName,
   deaktiviereSchueler,
   entferneKlassenleitung,
   entferneLehrauftrag,
@@ -33,6 +35,7 @@ import {
   listeFaecher,
   listeLehrkraefte,
   schemaUebersicht,
+  setzeLehrkraftRolle,
 } from '../db/admin.js';
 import {
   berechneFachFuerSchueler,
@@ -135,11 +138,18 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
         .code(403)
         .send({ fehler: 'Kein Benutzerkonto in der Notenverwaltung hinterlegt' });
     }
+    // Anzeigename aus dem AD übernehmen/aktualisieren — der Admin muss ihn nicht
+    // selbst pflegen.
+    let anzeigeName = lk.name;
+    if (auth.name && auth.name !== lk.name) {
+      aktualisiereLehrkraftName(db, lk.lehrkraftId, auth.name);
+      anzeigeName = auth.name;
+    }
     const token = await reply.jwtSign(
-      { sub: auth.loginSub, lehrkraftId: lk.lehrkraftId, rolle: lk.rolle, name: lk.name } satisfies TokenPayload,
+      { sub: auth.loginSub, lehrkraftId: lk.lehrkraftId, rolle: lk.rolle, name: anzeigeName } satisfies TokenPayload,
       { expiresIn: '12h' },
     );
-    return { token, rolle: lk.rolle, name: lk.name };
+    return { token, rolle: lk.rolle, name: anzeigeName };
   });
 
   app.get('/api/me', async (req) => ident(req));
@@ -402,18 +412,32 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
 
   app.post('/api/admin/lehrkraefte', async (req, reply) => {
     const b = req.body as Partial<{ name: string; loginSub: string; rolle: Rolle }>;
-    if (!b.name || !b.loginSub || !b.rolle) {
-      return reply.code(400).send({ fehler: 'name, loginSub und rolle erforderlich' });
+    // Der Name ist optional — er wird beim ersten Login automatisch aus dem AD
+    // übernommen. Pflicht sind nur Login-Kennung und Rolle.
+    if (!b.loginSub || !b.rolle) {
+      return reply.code(400).send({ fehler: 'loginSub und rolle erforderlich' });
     }
     if (!ROLLEN.includes(b.rolle)) {
       return reply.code(400).send({ fehler: 'Ungültige Rolle' });
     }
     try {
-      const id = erstelleLehrkraft(db, b.name, b.loginSub, b.rolle);
+      const id = erstelleLehrkraft(db, (b.name ?? '').trim(), b.loginSub, b.rolle);
       return reply.code(201).send({ id });
     } catch (e) {
       return reply.code(400).send({ fehler: konfliktText(e, 'Login-Kennung bereits vergeben') });
     }
+  });
+
+  // Rolle einer Lehrkraft ändern (z. B. Fachlehrkraft <-> Klassenleitung).
+  app.put('/api/admin/lehrkraefte/:id/rolle', async (req, reply) => {
+    const id = zahl((req.params as { id: string }).id);
+    if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Lehrkraft-ID' });
+    const b = req.body as Partial<{ rolle: Rolle }>;
+    if (!b.rolle || !ROLLEN.includes(b.rolle)) {
+      return reply.code(400).send({ fehler: 'Ungültige Rolle' });
+    }
+    setzeLehrkraftRolle(db, id, b.rolle);
+    return reply.code(204).send();
   });
 
   app.get('/api/admin/lehrkraefte/:id/auftraege', async (req, reply) => {
@@ -426,6 +450,9 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
   });
 
   // --- Lehraufträge ---
+  // Ohne `halbjahr` wird der Auftrag standardmäßig für ALLE Halbjahre angelegt,
+  // in denen das Fach im Bildungsgang der Klasse aktiv ist. Mit `halbjahr` nur
+  // für dieses eine.
   app.post('/api/admin/lehrauftraege', async (req, reply) => {
     const b = req.body as Partial<{
       lehrkraftId: number;
@@ -433,15 +460,24 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
       klasseId: number;
       halbjahr: number;
     }>;
-    if (b.lehrkraftId === undefined || !b.fach || b.klasseId === undefined || b.halbjahr === undefined) {
-      return reply.code(400).send({ fehler: 'lehrkraftId, fach, klasseId und halbjahr erforderlich' });
+    if (b.lehrkraftId === undefined || !b.fach || b.klasseId === undefined) {
+      return reply.code(400).send({ fehler: 'lehrkraftId, fach und klasseId erforderlich' });
     }
-    if (b.halbjahr < 1 || b.halbjahr > 4) {
+    if (b.halbjahr !== undefined && (b.halbjahr < 1 || b.halbjahr > 4)) {
       return reply.code(400).send({ fehler: 'halbjahr muss zwischen 1 und 4 liegen' });
     }
+    const halbjahre =
+      b.halbjahr !== undefined
+        ? [b.halbjahr]
+        : aktiveHalbjahreFuerFachKlasse(db, b.fach, b.klasseId);
+    if (halbjahre.length === 0) {
+      return reply
+        .code(400)
+        .send({ fehler: 'Fach ist für diese Klasse in keinem Halbjahr aktiv' });
+    }
     try {
-      erstelleLehrauftrag(db, b.lehrkraftId, b.fach, b.klasseId, b.halbjahr);
-      return reply.code(201).send({ ok: true });
+      for (const hj of halbjahre) erstelleLehrauftrag(db, b.lehrkraftId, b.fach, b.klasseId, hj);
+      return reply.code(201).send({ ok: true, halbjahre });
     } catch (e) {
       return reply.code(400).send({ fehler: (e as Error).message });
     }

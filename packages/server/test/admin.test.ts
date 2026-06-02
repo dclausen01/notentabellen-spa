@@ -16,6 +16,7 @@ let fachToken: string;
 const auth = new FakeAuthenticator({
   admin: { passwort: 'geheim', name: 'Admin' },
   lehrer: { passwort: 'geheim', name: 'Lehrer' },
+  neu: { passwort: 'pw', name: 'Neu Aus AD' },
 });
 
 async function login(benutzername: string, passwort: string): Promise<string> {
@@ -141,6 +142,38 @@ describe('Lehrkraft-Provisionierung & Zugriff', () => {
     });
     expect(r.status).toBe(400);
   });
+
+  it('Name ist optional und wird beim Login aus dem AD übernommen', async () => {
+    const r = await json('POST', '/api/admin/lehrkraefte', adminToken, {
+      loginSub: 'neu',
+      rolle: 'fach',
+    });
+    expect(r.status).toBe(201);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { benutzername: 'neu', passwort: 'pw' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body).name).toBe('Neu Aus AD');
+
+    const row = db.prepare("SELECT name FROM lehrkraft WHERE login_sub = 'neu'").get() as {
+      name: string;
+    };
+    expect(row.name).toBe('Neu Aus AD');
+  });
+
+  it('ändert die Rolle einer Lehrkraft (Fach <-> Klassenleitung)', async () => {
+    const lk = await json('GET', '/api/admin/lehrkraefte', adminToken);
+    const id = lk.body.find((l: any) => l.login_sub === 'lehrer').id;
+    const r = await json('PUT', `/api/admin/lehrkraefte/${id}/rolle`, adminToken, {
+      rolle: 'klassenleitung',
+    });
+    expect(r.status).toBe(204);
+    const lk2 = await json('GET', '/api/admin/lehrkraefte', adminToken);
+    expect(lk2.body.find((l: any) => l.id === id).rolle).toBe('klassenleitung');
+  });
 });
 
 describe('Lehraufträge & Klassenleitung', () => {
@@ -173,6 +206,18 @@ describe('Lehraufträge & Klassenleitung', () => {
     await json('DELETE', `/api/admin/lehrauftraege/${a.body.lehrauftraege[0].id}`, adminToken);
     const a2 = await json('GET', `/api/admin/lehrkraefte/${lehrkraftId}/auftraege`, adminToken);
     expect(a2.body.lehrauftraege).toHaveLength(0);
+  });
+
+  it('ohne Halbjahr-Angabe wird der Auftrag für alle aktiven Halbjahre angelegt', async () => {
+    const r = await json('POST', '/api/admin/lehrauftraege', adminToken, {
+      lehrkraftId,
+      fach: 'LF1',
+      klasseId,
+    });
+    expect(r.status).toBe(201);
+    const a = await json('GET', `/api/admin/lehrkraefte/${lehrkraftId}/auftraege`, adminToken);
+    const lf1 = a.body.lehrauftraege.filter((x: any) => x.fach === 'LF1').map((x: any) => x.halbjahr);
+    expect(lf1.sort()).toEqual([1, 2, 3, 4]);
   });
 
   it('unbekanntes Fach → 400', async () => {

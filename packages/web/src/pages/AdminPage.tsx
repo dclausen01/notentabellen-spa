@@ -273,10 +273,20 @@ function LehrkraefteBereich() {
     e.preventDefault();
     setFehler(null);
     try {
-      await adminApi.erstelleLehrkraft({ name, loginSub, rolle });
+      await adminApi.erstelleLehrkraft({ name: name.trim() || undefined, loginSub, rolle });
       setName('');
       setLoginSub('');
       setRolle('fach');
+      await lade();
+    } catch (err) {
+      setFehler(fehlerText(err));
+    }
+  }
+
+  async function rolleAendern(id: number, neueRolle: Rolle) {
+    setFehler(null);
+    try {
+      await adminApi.setzeRolle(id, neueRolle);
       await lade();
     } catch (err) {
       setFehler(fehlerText(err));
@@ -289,8 +299,12 @@ function LehrkraefteBereich() {
         <h3>Neue Lehrkraft</h3>
         <form className="formular" onSubmit={neu}>
           <label>
-            Name
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
+            Name (optional)
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="wird beim ersten Login aus dem AD übernommen"
+            />
           </label>
           <label>
             Login-Kennung (AD/sAMAccountName)
@@ -329,9 +343,22 @@ function LehrkraefteBereich() {
           <tbody>
             {lehrkraefte.map((l) => (
               <tr key={l.id}>
-                <td className="name">{l.name}</td>
+                <td className="name">
+                  {l.name || <span className="muted">— (beim Login)</span>}
+                </td>
                 <td>{l.login_sub}</td>
-                <td>{ROLLEN.find((r) => r.wert === l.rolle)?.label ?? l.rolle}</td>
+                <td>
+                  <select
+                    value={l.rolle}
+                    onChange={(e) => void rolleAendern(l.id, e.target.value as Rolle)}
+                  >
+                    {ROLLEN.map((r) => (
+                      <option key={r.wert} value={r.wert}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                </td>
                 <td>
                   <button
                     type="button"
@@ -365,7 +392,6 @@ function ZugriffVerwaltung({ lehrkraftId }: { lehrkraftId: number }) {
 
   const [fach, setFach] = useState('');
   const [klasseId, setKlasseId] = useState('');
-  const [halbjahr, setHalbjahr] = useState('1');
   const [klKlasse, setKlKlasse] = useState('');
 
   async function lade() {
@@ -383,12 +409,9 @@ function ZugriffVerwaltung({ lehrkraftId }: { lehrkraftId: number }) {
     e.preventDefault();
     setFehler(null);
     try {
-      await adminApi.erstelleLehrauftrag({
-        lehrkraftId,
-        fach,
-        klasseId: Number(klasseId),
-        halbjahr: Number(halbjahr),
-      });
+      // Ohne Halbjahr-Angabe: Auftrag für alle Halbjahre, in denen das Fach
+      // aktiv ist (einzelne lassen sich danach gezielt entfernen).
+      await adminApi.erstelleLehrauftrag({ lehrkraftId, fach, klasseId: Number(klasseId) });
       await lade();
     } catch (err) {
       setFehler(fehlerText(err));
@@ -447,18 +470,12 @@ function ZugriffVerwaltung({ lehrkraftId }: { lehrkraftId: number }) {
                 ))}
               </select>
             </label>
-            <label>
-              Hj.
-              <select value={halbjahr} onChange={(e) => setHalbjahr(e.target.value)}>
-                {[1, 2, 3, 4].map((h) => (
-                  <option key={h} value={h}>
-                    {h}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="submit">+</button>
+            <button type="submit">+ alle Halbjahre</button>
           </form>
+          <p className="muted hinweis">
+            Legt den Auftrag für alle Halbjahre an, in denen das Fach aktiv ist.
+            Einzelne Halbjahre kannst du unten gezielt entfernen.
+          </p>
           <ul className="chip-liste">
             {daten?.lehrauftraege.map((a) => (
               <li key={a.id}>

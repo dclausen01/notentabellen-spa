@@ -95,6 +95,39 @@ export function upsertLehrkraft(
     .get(login) as Lehrkraft;
 }
 
+/** Aktualisiert den Anzeigenamen einer Lehrkraft (z. B. aus dem AD beim Login). */
+export function aktualisiereLehrkraftName(db: DB, id: number, name: string): void {
+  db.prepare('UPDATE lehrkraft SET name = ? WHERE id = ?').run(name, id);
+}
+
+/** Ändert die Rolle einer Lehrkraft. */
+export function setzeLehrkraftRolle(db: DB, id: number, rolle: Rolle): void {
+  db.prepare('UPDATE lehrkraft SET rolle = ? WHERE id = ?').run(rolle, id);
+}
+
+/**
+ * Halbjahre, in denen ein Fach für den Bildungsgang der Klasse aktiv ist —
+ * Grundlage für die Voreinstellung „Lehrauftrag für alle Halbjahre".
+ */
+export function aktiveHalbjahreFuerFachKlasse(
+  db: DB,
+  fachSchluessel: string,
+  klasseId: number,
+): number[] {
+  return (
+    db
+      .prepare(
+        `SELECT bs.halbjahr FROM bewertungsschema bs
+           JOIN fach f ON f.id = bs.fach_id
+          WHERE f.schluessel = ?
+            AND bs.aktiv = 1
+            AND bs.bildungsgang_id = (SELECT bildungsgang_id FROM klasse WHERE id = ?)
+          ORDER BY bs.halbjahr`,
+      )
+      .all(fachSchluessel, klasseId) as { halbjahr: number }[]
+  ).map((r) => r.halbjahr);
+}
+
 export function entferneLehrauftrag(db: DB, id: number): void {
   db.prepare('DELETE FROM lehrauftrag WHERE id = ?').run(id);
 }

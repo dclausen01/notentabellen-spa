@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api.js';
 import { NoteInput } from '../components/NoteInput.js';
+import { aktuellesHalbjahr } from '../lib/halbjahr.js';
 import type {
   Eingabemaske,
   FachOption,
@@ -31,6 +32,15 @@ export function EingabePage() {
   }, [klasseId]);
 
   const aktuellesFach = faecher.find((f) => f.schluessel === fach);
+
+  // Voreinstellung: das anhand des Klassennamens (Startjahr) berechnete aktuelle
+  // Halbjahr, sofern das Fach in diesem Halbjahr belegt ist — sonst das erste.
+  function waehleHalbjahr(opt: FachOption | undefined): number | null {
+    if (!opt || opt.halbjahre.length === 0) return null;
+    const klasse = klassen.find((k) => k.id === klasseId);
+    const aktuell = klasse ? aktuellesHalbjahr(klasse.bezeichnung) : null;
+    return aktuell != null && opt.halbjahre.includes(aktuell) ? aktuell : opt.halbjahre[0]!;
+  }
 
   const ladeVorschau = useCallback(
     async (schuelerId: number, f: string, hj: number) => {
@@ -117,7 +127,7 @@ export function EingabePage() {
               const f = e.target.value || null;
               setFach(f);
               const opt = faecher.find((x) => x.schluessel === f);
-              setHalbjahr(opt?.halbjahre[0] ?? null);
+              setHalbjahr(waehleHalbjahr(opt));
             }}
           >
             <option value="">– wählen –</option>

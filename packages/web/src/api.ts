@@ -153,10 +153,16 @@ export const adminApi = {
 
   lehrkraefte: () => apiFetch<Lehrkraft[]>('/api/admin/lehrkraefte'),
 
-  erstelleLehrkraft: (body: { name: string; loginSub: string; rolle: Rolle }) =>
+  erstelleLehrkraft: (body: { name?: string; loginSub: string; rolle: Rolle }) =>
     apiFetch<{ id: number }>('/api/admin/lehrkraefte', {
       method: 'POST',
       body: JSON.stringify(body),
+    }),
+
+  setzeRolle: (id: number, rolle: Rolle) =>
+    apiFetch<void>(`/api/admin/lehrkraefte/${id}/rolle`, {
+      method: 'PUT',
+      body: JSON.stringify({ rolle }),
     }),
 
   auftraege: (lehrkraftId: number) =>
@@ -166,7 +172,7 @@ export const adminApi = {
     lehrkraftId: number;
     fach: string;
     klasseId: number;
-    halbjahr: number;
+    halbjahr?: number;
   }) => apiFetch<{ ok: true }>('/api/admin/lehrauftraege', { method: 'POST', body: JSON.stringify(body) }),
 
   entferneLehrauftrag: (id: number) =>
