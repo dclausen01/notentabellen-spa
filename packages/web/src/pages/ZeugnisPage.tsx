@@ -43,6 +43,24 @@ export function ZeugnisPage() {
     }
   }
 
+  async function exportiere() {
+    if (klasseId == null) return;
+    setFehler(null);
+    try {
+      const { blob, dateiname } = await api.zeugnisExport(klasseId, halbjahr);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = dateiname;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setFehler(e instanceof ApiError ? e.message : 'Export fehlgeschlagen');
+    }
+  }
+
   const faecher = zeilen[0]?.faecher.map((f) => f.fach) ?? [];
 
   return (
@@ -74,6 +92,11 @@ export function ZeugnisPage() {
         {klasseId != null && (
           <button type="button" className="secondary" onClick={() => void neuBerechnen()}>
             Neu berechnen
+          </button>
+        )}
+        {klasseId != null && zeilen.length > 0 && (
+          <button type="button" onClick={() => void exportiere()}>
+            Als Excel exportieren
           </button>
         )}
       </div>

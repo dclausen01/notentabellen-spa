@@ -5,7 +5,7 @@ import { FakeAuthenticator } from '../src/auth/authenticator.js';
 import { openDb, type DB } from '../src/db/connection.js';
 import { migrate } from '../src/db/migrate.js';
 import { seed } from '../src/seed/seed.js';
-import { erstelleKlasse, erstelleLehrkraft } from '../src/db/stammdaten.js';
+import { erstelleKlasse, erstelleLehrkraft, erstelleSchueler } from '../src/db/stammdaten.js';
 import { upsertLehrkraft } from '../src/db/admin.js';
 
 let db: DB;
@@ -213,6 +213,38 @@ describe('upsertLehrkraft (seed-admin)', () => {
       db.prepare("SELECT COUNT(*) AS n FROM lehrkraft WHERE login_sub = 'ClauD'").get() as { n: number }
     ).n;
     expect(anzahl).toBe(1);
+  });
+});
+
+describe('Zeugnis-Export (XLSX)', () => {
+  it('liefert eine XLSX-Datei mit passendem Dateinamen', async () => {
+    const klasseId = erstelleKlasse(db, 'SPA PiA 1', '2025/26', 'SPA_PIA');
+    const sId = erstelleSchueler(db, 'Mustermann', 'Max', klasseId);
+    // eine Direktnote, damit Inhalt vorhanden ist
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: sId, fach: 'LF1', halbjahr: 1, wert: 12, istNa: false,
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/zeugnis/export?klasseId=${klasseId}&halbjahr=1`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('spreadsheetml');
+    expect(res.headers['content-disposition']).toContain('.xlsx');
+    // XLSX ist eine ZIP-Datei → beginnt mit "PK"
+    expect(res.rawPayload.subarray(0, 2).toString('latin1')).toBe('PK');
+  });
+
+  it('verweigert Fachlehrkräften den Export (403)', async () => {
+    const klasseId = erstelleKlasse(db, 'SPA B', '2025/26', 'SPA_REGULAR');
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/zeugnis/export?klasseId=${klasseId}&halbjahr=2`,
+      headers: { authorization: `Bearer ${fachToken}` },
+    });
+    expect(res.statusCode).toBe(403);
   });
 });
 

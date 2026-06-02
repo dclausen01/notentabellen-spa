@@ -91,5 +91,6 @@ Tests/Checks über alle Pakete: `npm test`, `npm run typecheck`, `npm run build`
 ## Status
 
 In Aufbau. Fertig: M0–M6 (Rechenkern, DB/Seed, API, LDAP-Auth, Frontend,
-Admin-UI). Aktueller Stand und nächste Schritte: siehe Umsetzungsplan,
-„Meilensteinplan".
+Admin-UI); M7 läuft (Zeugnis-Export XLSX und Betriebs-/Backup-Doku fertig,
+siehe [`docs/BETRIEB.md`](docs/BETRIEB.md); PDF-Export und Excel-Migration
+offen). Aktueller Stand: siehe Umsetzungsplan, „Meilensteinplan".

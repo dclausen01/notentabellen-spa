@@ -56,6 +56,27 @@ async function apiFetch<T>(pfad: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** Lädt eine Datei (mit Auth-Header) und gibt Blob + Dateiname zurück. */
+async function apiDownload(pfad: string): Promise<{ blob: Blob; dateiname: string }> {
+  const headers = new Headers();
+  if (aktuellesToken) headers.set('authorization', `Bearer ${aktuellesToken}`);
+  const res = await fetch(pfad, { headers });
+  if (!res.ok) {
+    let nachricht = `Fehler ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.fehler) nachricht = body.fehler;
+    } catch {
+      /* kein JSON */
+    }
+    if (res.status === 401 && aktuellesToken) beiAuthFehler?.();
+    throw new ApiError(res.status, nachricht);
+  }
+  const cd = res.headers.get('content-disposition') ?? '';
+  const treffer = cd.match(/filename="?([^"]+)"?/);
+  return { blob: await res.blob(), dateiname: treffer?.[1] ?? 'download' };
+}
+
 export interface LoginAntwort {
   token: string;
   rolle: Identitaet['rolle'];
@@ -109,6 +130,9 @@ export const api = {
     }),
 
   schueler: (klasseId: number) => apiFetch<Schueler[]>(`/api/klassen/${klasseId}/schueler`),
+
+  zeugnisExport: (klasseId: number, halbjahr: number) =>
+    apiDownload(`/api/zeugnis/export?klasseId=${klasseId}&halbjahr=${halbjahr}`),
 };
 
 export const adminApi = {

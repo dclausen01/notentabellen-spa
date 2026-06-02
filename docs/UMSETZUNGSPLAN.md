@@ -323,10 +323,15 @@ GET   /admin/notenskala /admin/wpk-kurse
 | **M4** ✅ | Auth (LDAP/AD-Bind) + JWT + Rollen + Lehrauftrag-Filter + Audit-Akteur | Zugriff erzwungen, auditiert |
 | **M5** ✅ | React-Frontend: Login + Eingabemaske + Zeugnisansicht | End-to-end klickbar |
 | **M6** ✅ | Admin-UI (Stammdaten, Lehrkräfte/Lehraufträge/Klassenleitung, Schema-Übersicht) | Konfiguration ohne SQL pflegbar |
-| **M7** | Export (PDF/XLSX), Migration Altdaten, Betriebs-/Backup-Doku | übergabefähig |
+| **M7** 🟡 | Export (XLSX ✅, PDF offen), Betriebs-/Backup-Doku ✅, Migration Altdaten (offen) | übergabefähig |
 
-**Nächster Schritt:** M7 (Export PDF/XLSX, Migration der Excel-Bestandsdaten,
-Betriebs-/Backup-Dokumentation).
+**Stand M7:** Zeugnis-Export als **XLSX** (Blätter „Tendenznoten" + „Endpunkte")
+ist umgesetzt (Button in der Zeugnisansicht; nur Klassenleitung/Admin).
+Betriebs-/Deployment-/Backup-Dokumentation liegt in
+[`BETRIEB.md`](BETRIEB.md). Diagnose-/Bootstrap-CLIs `ldap-test` und
+`seed-admin` sind vorhanden. **Offen:** PDF-Export und die Migration der
+Excel-Bestandsdaten — Letztere hängt an Frage #5 (reale Altdaten übernehmen
+oder mit laufendem Schuljahr neu starten?).
 
 **Admin-UI (M6):** Administrationsbereich im Frontend (nur Rolle `admin`),
 serverseitig über `/api/admin/*` (eigener Admin-Hook) abgesichert. Funktionen:

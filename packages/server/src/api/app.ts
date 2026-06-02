@@ -41,6 +41,7 @@ import {
 } from '../services/berechnung.js';
 import { baueEingabemaske } from '../services/eingabemaske.js';
 import { faecherFuerKlasse } from '../services/faecher.js';
+import { exportDateiname, zeugnisAlsXlsx } from '../services/export.js';
 
 export interface AppOptions {
   db: DB;
@@ -317,6 +318,30 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
     if (me.rolle !== 'admin' && !istKlassenleitung(db, me.lehrkraftId, klasseId)) return verboten(reply);
     try {
       return zeugnisFuerKlasse(db, klasseId, halbjahr);
+    } catch (e) {
+      return reply.code(404).send({ fehler: (e as Error).message });
+    }
+  });
+
+  // Zeugnis-Export als XLSX (Klassenleitung der Klasse oder Admin).
+  app.get('/api/zeugnis/export', async (req, reply) => {
+    const q = req.query as { klasseId?: string; halbjahr?: string };
+    const klasseId = zahl(q.klasseId);
+    const halbjahr = zahl(q.halbjahr);
+    if (klasseId === undefined || halbjahr === undefined) {
+      return reply.code(400).send({ fehler: 'klasseId und halbjahr erforderlich' });
+    }
+    const me = ident(req);
+    if (me.rolle !== 'admin' && !istKlassenleitung(db, me.lehrkraftId, klasseId)) return verboten(reply);
+    try {
+      const datei = exportDateiname(db, klasseId, halbjahr);
+      const buf = await zeugnisAlsXlsx(db, klasseId, halbjahr);
+      reply.header(
+        'content-type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      reply.header('content-disposition', `attachment; filename="${datei}"`);
+      return reply.send(buf);
     } catch (e) {
       return reply.code(404).send({ fehler: (e as Error).message });
     }
