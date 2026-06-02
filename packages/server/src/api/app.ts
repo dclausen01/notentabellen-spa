@@ -117,7 +117,15 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
     if (!b.benutzername || !b.passwort) {
       return reply.code(400).send({ fehler: 'benutzername und passwort erforderlich' });
     }
-    const auth = await authenticator.authenticate(b.benutzername, b.passwort);
+    let auth;
+    try {
+      auth = await authenticator.authenticate(b.benutzername, b.passwort);
+    } catch (e) {
+      // Technische Fehler (z. B. LDAP/TLS nicht erreichbar) serverseitig
+      // protokollieren, dem Client aber nur eine generische Meldung geben.
+      console.error('Authentifizierung fehlgeschlagen (technischer Fehler):', e);
+      return reply.code(500).send({ fehler: 'Anmeldedienst nicht erreichbar' });
+    }
     if (!auth) return reply.code(401).send({ fehler: 'Anmeldung fehlgeschlagen' });
 
     const lk = lehrkraftVonLoginSub(db, auth.loginSub);
