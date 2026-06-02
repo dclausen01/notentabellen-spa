@@ -320,10 +320,16 @@ GET   /admin/notenskala /admin/wpk-kurse
 | **M1** ✅ | **Rechenkern** + Golden-Master + Unit-Tests | alle Excel-Sollwerte reproduziert |
 | **M2** ✅ | SQLite-Schema, Migrationen, Seed (Bildungsgänge, Fächer, Schemata, Notenskala, WPK) | DB initialisierbar; Seed deckt PiA + regulär ab |
 | **M3** ✅ | Fastify-API: Eingabe + Berechnung + Zeugnisansicht (ohne Auth) | lokal nutzbar, API-Tests grün |
-| **M4** | Auth/SSO (Nextcloud/LDAP) + Rollen + Lehrauftrag-Filter + Audit-Log | Zugriff erzwungen, auditiert |
+| **M4** ✅ | Auth (LDAP/AD-Bind) + JWT + Rollen + Lehrauftrag-Filter + Audit-Akteur | Zugriff erzwungen, auditiert |
 | **M5** | React-Frontend: Eingabemaske + Zeugnisansicht | End-to-end klickbar |
 | **M6** | Admin-UI (Schemata/Gewichte/Lehraufträge/Stammdaten) | Konfiguration ohne Code pflegbar |
 | **M7** | Export (PDF/XLSX), Migration Altdaten, Betriebs-/Backup-Doku | übergabefähig |
 
-**Nächster Schritt:** M4 (Auth/SSO Nextcloud/LDAP, Rollen, Lehrauftrag-Filter).
-Das Audit-Log wird bereits ab M3 geschrieben; der Akteur folgt mit der Auth.
+**Nächster Schritt:** M5 (React-Frontend: Login, Eingabemaske, Zeugnisansicht).
+
+**Auth-Hinweis (M4):** Authentifizierung per direktem LDAP-Bind gegen das AD
+(Service-Account-Suche → Re-Bind mit Benutzer-DN). Rollen kommen aus der DB
+(`lehrkraft.rolle`), nicht aus AD-Gruppen. Session als JWT (12 h). Sämtliche
+LDAP-Parameter und `JWT_SECRET` ausschließlich über Umgebungsvariablen
+(`.env.example` als Vorlage; `.env` ist gitignored). Die Auth ist über eine
+`Authenticator`-Abstraktion gekapselt, daher offline testbar.

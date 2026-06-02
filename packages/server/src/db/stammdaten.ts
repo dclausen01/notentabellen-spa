@@ -65,3 +65,43 @@ export function listeSchueler(db: DB, klasseId: number): Schueler[] {
     .prepare('SELECT * FROM schueler WHERE klasse_id = ? AND aktiv = 1 ORDER BY name, vorname')
     .all(klasseId) as Schueler[];
 }
+
+export type Rolle = 'fach' | 'klassenleitung' | 'admin';
+
+export function erstelleLehrkraft(
+  db: DB,
+  name: string,
+  loginSub: string,
+  rolle: Rolle,
+): number {
+  const info = db
+    .prepare('INSERT INTO lehrkraft (name, login_sub, rolle) VALUES (?, ?, ?)')
+    .run(name, loginSub, rolle);
+  return Number(info.lastInsertRowid);
+}
+
+export function erstelleLehrauftrag(
+  db: DB,
+  lehrkraftId: number,
+  fachSchluessel: string,
+  klasseId: number,
+  halbjahr: number,
+): void {
+  const fid = (
+    db.prepare('SELECT id FROM fach WHERE schluessel = ?').get(fachSchluessel) as
+      | { id: number }
+      | undefined
+  )?.id;
+  if (fid === undefined) throw new Error(`Fach ${fachSchluessel} unbekannt`);
+  db.prepare(
+    `INSERT INTO lehrauftrag (lehrkraft_id, fach_id, klasse_id, halbjahr) VALUES (?, ?, ?, ?)
+     ON CONFLICT(lehrkraft_id, fach_id, klasse_id, halbjahr) DO NOTHING`,
+  ).run(lehrkraftId, fid, klasseId, halbjahr);
+}
+
+export function setzeKlassenleitung(db: DB, lehrkraftId: number, klasseId: number): void {
+  db.prepare(
+    `INSERT INTO klassenleitung (lehrkraft_id, klasse_id) VALUES (?, ?)
+     ON CONFLICT(lehrkraft_id, klasse_id) DO NOTHING`,
+  ).run(lehrkraftId, klasseId);
+}
