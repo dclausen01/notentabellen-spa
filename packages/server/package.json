@@ -7,6 +7,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "db:init": "tsx src/cli/init-db.ts",
+    "seed-admin": "node dist/cli/seed-admin.js",
     "ldap-test": "node dist/cli/ldap-test.js",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js"

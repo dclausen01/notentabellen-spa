@@ -71,6 +71,21 @@ Hier ist die App unter `http://localhost:5173` erreichbar; `/api`-Aufrufe
 werden per Vite-Proxy an `:4000` weitergeleitet. Bei abweichendem `PORT` den
 Proxy mit `API_PORT=<port> npm run dev --workspace @notentabellen/web` starten.
 
+### Ersten Admin anlegen & LDAP testen
+
+Da Rollen aus der DB kommen, braucht es für den allerersten Login ein
+Admin-Konto (danach alles über die Admin-UI). Login-Kennung = der `loginSub`,
+den `ldap-test` ausgibt (AD-`sAMAccountName`):
+
+```bash
+# LDAP-Anmeldung prüfen (gibt loginSub + Name aus)
+npm run ldap-test --workspace @notentabellen/server -- <ad-benutzer> <passwort>
+
+# ersten Admin anlegen (idempotent; --db nur nötig, wenn DB_PFAD nicht gesetzt)
+npm run seed-admin --workspace @notentabellen/server -- \
+  --login <loginSub> --name "<Anzeigename>"
+```
+
 Tests/Checks über alle Pakete: `npm test`, `npm run typecheck`, `npm run build`.
 
 ## Status

@@ -6,6 +6,7 @@ import { openDb, type DB } from '../src/db/connection.js';
 import { migrate } from '../src/db/migrate.js';
 import { seed } from '../src/seed/seed.js';
 import { erstelleKlasse, erstelleLehrkraft } from '../src/db/stammdaten.js';
+import { upsertLehrkraft } from '../src/db/admin.js';
 
 let db: DB;
 let app: FastifyInstance;
@@ -193,6 +194,25 @@ describe('Lehraufträge & Klassenleitung', () => {
     await json('DELETE', `/api/admin/klassenleitung?lehrkraftId=${lehrkraftId}&klasseId=${klasseId}`, adminToken);
     a = await json('GET', `/api/admin/lehrkraefte/${lehrkraftId}/auftraege`, adminToken);
     expect(a.body.klassenleitungen).toHaveLength(0);
+  });
+});
+
+describe('upsertLehrkraft (seed-admin)', () => {
+  it('legt einen Admin an und ist beim zweiten Aufruf idempotent (Update)', () => {
+    const a = upsertLehrkraft(db, 'ClauD', 'Clausen, Dennis', 'admin');
+    expect(a.rolle).toBe('admin');
+    expect(a.login_sub).toBe('ClauD');
+
+    // Zweiter Aufruf mit gleichem login_sub aktualisiert Name/Rolle, legt nicht doppelt an.
+    const b = upsertLehrkraft(db, 'ClauD', 'Clausen, D.', 'klassenleitung');
+    expect(b.id).toBe(a.id);
+    expect(b.name).toBe('Clausen, D.');
+    expect(b.rolle).toBe('klassenleitung');
+
+    const anzahl = (
+      db.prepare("SELECT COUNT(*) AS n FROM lehrkraft WHERE login_sub = 'ClauD'").get() as { n: number }
+    ).n;
+    expect(anzahl).toBe(1);
   });
 });
 

@@ -75,6 +75,26 @@ export function klassenleitungenVonLehrkraft(db: DB, lehrkraftId: number): Klass
     .all(lehrkraftId) as KlassenleitungZeile[];
 }
 
+/**
+ * Legt eine Lehrkraft an oder aktualisiert sie (Upsert auf login_sub).
+ * Wird u. a. vom seed-admin-CLI genutzt, um den ersten Admin ohne SQL
+ * anzulegen. Gibt die gespeicherte Zeile zurück.
+ */
+export function upsertLehrkraft(
+  db: DB,
+  login: string,
+  name: string,
+  rolle: Rolle,
+): Lehrkraft {
+  db.prepare(
+    `INSERT INTO lehrkraft (name, login_sub, rolle) VALUES (@name, @login, @rolle)
+     ON CONFLICT(login_sub) DO UPDATE SET name = excluded.name, rolle = excluded.rolle`,
+  ).run({ name, login, rolle });
+  return db
+    .prepare('SELECT id, name, login_sub, rolle FROM lehrkraft WHERE login_sub = ?')
+    .get(login) as Lehrkraft;
+}
+
 export function entferneLehrauftrag(db: DB, id: number): void {
   db.prepare('DELETE FROM lehrauftrag WHERE id = ?').run(id);
 }
