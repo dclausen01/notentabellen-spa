@@ -177,17 +177,16 @@ werden **rein über Konfiguration** abgebildet (Bildungsgang-abhängige
 | --- | --- | --- |
 | LF4 | durchgängig **oder** je Hj. per n/a abschaltbar (`deaktivierbar=true`) | **immer durchgängig** unterrichtet (`deaktivierbar=false`, in allen 4 Hj. aktiv) |
 | Blockpraktikum | ja — „Blockpraxis" im 3. Hj. als eigene Eingabe | **kein** Blockpraktikum (keine Blockpraxis-Komponente) |
-| Praxisnoten | mehrere Halbjahre; Praxis-Endnote 4. Hj. = 0,3·3.Hj + 0,7·4.Hj | **nur 2. und 3. Hj.** (Praxis im 1./4. Hj. nicht aktiv) |
+| Praxisnoten | mehrere Halbjahre; Praxis-Endnote 4. Hj. = 0,3·3.Hj + 0,7·4.Hj | **nur 2. und 3. Hj.**; beide Noten bleiben **separat** (keine Verrechnung) und werden beide im Abschlusszeugnis ausgewiesen |
 
 **Konsequenz für das Schema:** Ein `bewertungsschema` ist immer an
 `(fach, bildungsgang, halbjahr)` gebunden. So kann z. B. „Praxis" für PiA in
 1.–4. Hj. aktiv sein, für regulär nur in 2.–3. Hj. — ohne Code-Verzweigung.
 
-> **Offen (Abschnitt 11):** Wie wird die **Praxis-Zeugnisnote bei regulär**
-> gebildet, wenn es nur zwei Halbjahre (2. + 3.) gibt? Mittelwert beider?
-> Aktuelles (3.) Hj.? Eine 0,3/0,7-Gewichtung analog PiA? Das ist die einzige
-> Regel, die ich aus den vorliegenden Dateien (nur PiA-Daten) nicht ableiten
-> kann.
+**Praxis regulär (geklärt):** Die beiden Praxisnoten (2. + 3. Hj.) werden
+**nicht** kumuliert oder verrechnet. Jede ist eine eigenständige Direktnote
+(`kumulation_modus = keine`) und wird im Abschlusszeugnis separat ausgewiesen.
+Die 0,3/0,7-Praxis-Endnote gilt ausschließlich für PiA.
 
 ---
 
@@ -299,8 +298,8 @@ GET   /admin/notenskala /admin/wpk-kurse
 
 ## 11. Offene Punkte (Entscheidung erbeten)
 
-1. **Praxis-Zeugnisnote SPA regulär** (nur 2. + 3. Hj.): Mittelwert, aktuelles
-   Hj. oder 0,3/0,7? — blockiert nur das reguläre Praxis-Schema.
+1. ~~**Praxis-Zeugnisnote SPA regulär** (nur 2. + 3. Hj.)~~ — **geklärt:** beide
+   Noten bleiben separat, keine Verrechnung, beide im Abschlusszeugnis (s. §4).
 2. **Rundung an Grenzwerten:** kaufmännisch (x,5 → auf) bestätigen; Sonderfälle
    „nicht erteilt"/„befreit" als eigener n/a-Subtyp?
 3. **LF3-3.-Hj.-Rundung & ungerundete Kumulation** (3.4): Korrektur akzeptiert?
