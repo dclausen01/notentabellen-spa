@@ -35,18 +35,37 @@ docs/        # Spezifikation, Umsetzungsplan, Entscheidungen
 
 ## Lokal starten
 
+Konfiguration anlegen (Werte ausfüllen, `.env` ist gitignored):
+
 ```bash
 npm install
-npm run build
-
-# Backend: DB anlegen + API starten (LDAP/JWT-Env nötig, siehe packages/server/.env.example)
-cp packages/server/.env.example packages/server/.env   # Werte ausfüllen
-npm run db:init --workspace @notentabellen/server
-npm run dev --workspace @notentabellen/server           # API auf :3000
-
-# Frontend (Dev-Server mit Proxy auf :3000)
-npm run dev --workspace @notentabellen/web              # UI auf :5173
+cp packages/server/.env.example packages/server/.env   # JWT_SECRET, LDAP_* etc.
 ```
+
+### Variante A: Ein Server (empfohlen, auch fürs Deployment)
+
+Das gebaute Frontend wird vom Backend mitausgeliefert — alles läuft auf **einem
+Port (:3000)**, ohne Dev-Proxy. Die App ist im Browser direkt unter
+`http://localhost:3000` erreichbar.
+
+```bash
+npm run build                                   # u. a. packages/web/dist
+npm run dev --workspace @notentabellen/server   # App + API auf :3000
+# oder produktiv: npm run start --workspace @notentabellen/server
+```
+
+> Hinweis: Liegt `packages/web/dist` nicht vor (kein `npm run build`), liefert
+> der Server nur die API aus — die Startmeldung weist darauf hin.
+
+### Variante B: Zwei Dev-Server (Hot-Reload fürs Frontend)
+
+```bash
+npm run dev --workspace @notentabellen/server   # API auf :3000
+npm run dev --workspace @notentabellen/web      # UI auf :5173 (Proxy → :3000)
+```
+
+Hier ist die App unter `http://localhost:5173` erreichbar; `/api`-Aufrufe
+werden per Vite-Proxy an `:3000` weitergeleitet.
 
 Tests/Checks über alle Pakete: `npm test`, `npm run typecheck`, `npm run build`.
 

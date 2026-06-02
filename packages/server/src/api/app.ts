@@ -1,4 +1,5 @@
 import jwt from '@fastify/jwt';
+import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type { Authenticator } from '../auth/authenticator.js';
 import {
@@ -45,6 +46,8 @@ export interface AppOptions {
   db: DB;
   authenticator: Authenticator;
   jwtSecret: string;
+  /** Verzeichnis mit dem gebauten Frontend (packages/web/dist). Optional. */
+  webRoot?: string;
 }
 
 interface TokenPayload {
@@ -59,15 +62,33 @@ function zahl(v: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-const OEFFENTLICH = new Set(['/health', '/api/auth/login']);
+// Öffentliche API-Routen (ohne Token erreichbar). Statische Dateien und das
+// SPA-Frontend (alles außerhalb von /api/) sind generell öffentlich.
+const OEFFENTLICH = new Set(['/api/auth/login']);
 
-export function baueApp({ db, authenticator, jwtSecret }: AppOptions): FastifyInstance {
+export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): FastifyInstance {
   const app = Fastify({ logger: false });
   app.register(jwt, { secret: jwtSecret });
 
-  // Authentifizierung: alle Routen außer den öffentlichen erfordern ein gültiges Token.
+  // Gebautes Frontend mitausliefern, falls vorhanden — dann läuft alles auf
+  // einem Port ohne Dev-Proxy. wildcard:false lässt unbekannte Pfade in den
+  // NotFound-Handler laufen (SPA-Fallback auf index.html).
+  if (webRoot) {
+    app.register(fastifyStatic, { root: webRoot, wildcard: false });
+    app.setNotFoundHandler((req, reply) => {
+      const url = req.raw.url ?? '';
+      if (req.method !== 'GET' || url.startsWith('/api/')) {
+        return reply.code(404).send({ fehler: 'Nicht gefunden' });
+      }
+      return reply.sendFile('index.html');
+    });
+  }
+
+  // Authentifizierung: nur /api/-Routen (außer den öffentlichen) erfordern ein
+  // gültiges Token. /health und statische Assets bleiben offen.
   app.addHook('onRequest', async (req, reply) => {
-    if (OEFFENTLICH.has(req.routeOptions.url ?? req.url)) return;
+    const url = req.routeOptions.url ?? req.url;
+    if (!url.startsWith('/api/') || OEFFENTLICH.has(url)) return;
     try {
       await req.jwtVerify();
     } catch {

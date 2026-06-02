@@ -39,12 +39,21 @@ const db = openDb(pfad);
 migrate(db);
 seed(db);
 
+// Gebautes Frontend (packages/web/dist) mitausliefern, falls vorhanden.
+const webRoot = fileURLToPath(new URL('../../web/dist', import.meta.url));
+const webVorhanden = existsSync(webRoot);
+
 const authenticator = new LdapAuthenticator(ldapConfigAusEnv());
-const app = baueApp({ db, authenticator, jwtSecret });
+const app = baueApp({ db, authenticator, jwtSecret, ...(webVorhanden ? { webRoot } : {}) });
 
 app
   .listen({ port, host: '0.0.0.0' })
-  .then((addr) => console.log(`API läuft auf ${addr} (DB: ${pfad})`))
+  .then((addr) =>
+    console.log(
+      `API läuft auf ${addr} (DB: ${pfad})` +
+        (webVorhanden ? ` — Frontend wird mitausgeliefert, App im Browser unter ${addr}` : ' — Frontend nicht gebaut (npm run build)'),
+    ),
+  )
   .catch((err) => {
     console.error(err);
     process.exit(1);
