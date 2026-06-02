@@ -1,0 +1,484 @@
+{
+  "quelle": "Aus SPA_LF2_Berechnung.xlsx / SPA_LF3_Berechnung.xlsx, Blatt '1. Hj.', data_only (gecachte Excel-Ergebnisse).",
+  "lf2_1hj": {
+    "beschreibung": "LF2 1. Hj.: gewichtet Gesundheit 0.4 / Erziehung 0.3 / Entwicklung 0.3. Endpunkte=Zwischennote (1.Hj). Tendenz=Notenskala[round(Endpunkte)].",
+    "gewichte": {
+      "gesundheit": 0.4,
+      "erziehung": 0.3,
+      "entwicklung": 0.3
+    },
+    "zeilen": [
+      {
+        "zeile": 3,
+        "gesundheit": 7,
+        "erziehung": 5,
+        "entwicklung": 5,
+        "erwartet_endpunkte": 5.8,
+        "erwartet_tendenz": "4+"
+      },
+      {
+        "zeile": 4,
+        "gesundheit": 12,
+        "erziehung": 8,
+        "entwicklung": 8,
+        "erwartet_endpunkte": 9.6,
+        "erwartet_tendenz": "2-"
+      },
+      {
+        "zeile": 5,
+        "gesundheit": 8,
+        "erziehung": 6,
+        "entwicklung": 6,
+        "erwartet_endpunkte": 6.8,
+        "erwartet_tendenz": "3-"
+      },
+      {
+        "zeile": 6,
+        "gesundheit": 7,
+        "erziehung": 6,
+        "entwicklung": 6,
+        "erwartet_endpunkte": 6.4,
+        "erwartet_tendenz": "4+"
+      },
+      {
+        "zeile": 7,
+        "gesundheit": 12,
+        "erziehung": 12,
+        "entwicklung": 12,
+        "erwartet_endpunkte": 12.0,
+        "erwartet_tendenz": "2+"
+      },
+      {
+        "zeile": 8,
+        "gesundheit": 9,
+        "erziehung": 4,
+        "entwicklung": 4,
+        "erwartet_endpunkte": 6.0,
+        "erwartet_tendenz": "4+"
+      },
+      {
+        "zeile": 9,
+        "gesundheit": 11,
+        "erziehung": 12,
+        "entwicklung": 12,
+        "erwartet_endpunkte": 11.6,
+        "erwartet_tendenz": "2+"
+      },
+      {
+        "zeile": 10,
+        "gesundheit": 13,
+        "erziehung": 10,
+        "entwicklung": 10,
+        "erwartet_endpunkte": 11.2,
+        "erwartet_tendenz": "2"
+      },
+      {
+        "zeile": 11,
+        "gesundheit": 7,
+        "erziehung": 5,
+        "entwicklung": 5,
+        "erwartet_endpunkte": 5.8,
+        "erwartet_tendenz": "4+"
+      },
+      {
+        "zeile": 12,
+        "gesundheit": 9,
+        "erziehung": 4,
+        "entwicklung": 4,
+        "erwartet_endpunkte": 6.0,
+        "erwartet_tendenz": "4+"
+      },
+      {
+        "zeile": 13,
+        "gesundheit": 12,
+        "erziehung": 7,
+        "entwicklung": 7,
+        "erwartet_endpunkte": 9.0,
+        "erwartet_tendenz": "3+"
+      },
+      {
+        "zeile": 14,
+        "gesundheit": 11,
+        "erziehung": 11,
+        "entwicklung": 11,
+        "erwartet_endpunkte": 11.0,
+        "erwartet_tendenz": "2"
+      },
+      {
+        "zeile": 15,
+        "gesundheit": 4,
+        "erziehung": 2,
+        "entwicklung": 2,
+        "erwartet_endpunkte": 2.8,
+        "erwartet_tendenz": "5+"
+      },
+      {
+        "zeile": 16,
+        "gesundheit": 11,
+        "erziehung": 12,
+        "entwicklung": 12,
+        "erwartet_endpunkte": 11.6,
+        "erwartet_tendenz": "2+"
+      },
+      {
+        "zeile": 17,
+        "gesundheit": 7,
+        "erziehung": 8,
+        "entwicklung": 8,
+        "erwartet_endpunkte": 7.6,
+        "erwartet_tendenz": "3"
+      },
+      {
+        "zeile": 18,
+        "gesundheit": 9,
+        "erziehung": 5,
+        "entwicklung": 5,
+        "erwartet_endpunkte": 6.6,
+        "erwartet_tendenz": "3-"
+      },
+      {
+        "zeile": 19,
+        "gesundheit": 11,
+        "erziehung": 14,
+        "entwicklung": 14,
+        "erwartet_endpunkte": 12.8,
+        "erwartet_tendenz": "1-"
+      },
+      {
+        "zeile": 20,
+        "gesundheit": 9,
+        "erziehung": 7,
+        "entwicklung": 7,
+        "erwartet_endpunkte": 7.8,
+        "erwartet_tendenz": "3"
+      },
+      {
+        "zeile": 21,
+        "gesundheit": 11,
+        "erziehung": 7,
+        "entwicklung": 7,
+        "erwartet_endpunkte": 8.6,
+        "erwartet_tendenz": "3+"
+      },
+      {
+        "zeile": 22,
+        "gesundheit": 9,
+        "erziehung": 9,
+        "entwicklung": 9,
+        "erwartet_endpunkte": 9.0,
+        "erwartet_tendenz": "3+"
+      },
+      {
+        "zeile": 23,
+        "gesundheit": 10,
+        "erziehung": 4,
+        "entwicklung": 4,
+        "erwartet_endpunkte": 6.4,
+        "erwartet_tendenz": "4+"
+      },
+      {
+        "zeile": 24,
+        "gesundheit": 8,
+        "erziehung": 8,
+        "entwicklung": 8,
+        "erwartet_endpunkte": 8.0,
+        "erwartet_tendenz": "3"
+      },
+      {
+        "zeile": 25,
+        "gesundheit": 11,
+        "erziehung": 9,
+        "entwicklung": 9,
+        "erwartet_endpunkte": 9.8,
+        "erwartet_tendenz": "2-"
+      },
+      {
+        "zeile": 26,
+        "gesundheit": 9,
+        "erziehung": 3,
+        "entwicklung": 3,
+        "erwartet_endpunkte": 5.4,
+        "erwartet_tendenz": "4"
+      },
+      {
+        "zeile": 27,
+        "gesundheit": 9,
+        "erziehung": 9,
+        "entwicklung": 9,
+        "erwartet_endpunkte": 9.0,
+        "erwartet_tendenz": "3+"
+      },
+      {
+        "zeile": 28,
+        "gesundheit": 8,
+        "erziehung": 10,
+        "entwicklung": 10,
+        "erwartet_endpunkte": 9.2,
+        "erwartet_tendenz": "3+"
+      },
+      {
+        "zeile": 29,
+        "gesundheit": 8,
+        "erziehung": 7,
+        "entwicklung": 7,
+        "erwartet_endpunkte": 7.4,
+        "erwartet_tendenz": "3-"
+      }
+    ]
+  },
+  "lf3_1hj": {
+    "beschreibung": "LF3 1. Hj.: Paedagogik fix 0.4; Restbudget 0.6 gleichmaessig auf aktive Rest-Komponenten (Kunst/Spiel/Musik = je 0.2).",
+    "paed_fix": 0.4,
+    "rest_komponenten": [
+      "kunst",
+      "spiel",
+      "musik"
+    ],
+    "zeilen": [
+      {
+        "zeile": 3,
+        "paedagogik": 7,
+        "kunst": 8,
+        "spiel": 4,
+        "musik": 9,
+        "erwartet_endpunkte": 7.0,
+        "erwartet_tendenz": "3-"
+      },
+      {
+        "zeile": 4,
+        "paedagogik": 5,
+        "kunst": 10,
+        "spiel": 10,
+        "musik": 9,
+        "erwartet_endpunkte": 7.8,
+        "erwartet_tendenz": "3"
+      },
+      {
+        "zeile": 5,
+        "paedagogik": 8,
+        "kunst": 13,
+        "spiel": 6,
+        "musik": 10,
+        "erwartet_endpunkte": 9.0,
+        "erwartet_tendenz": "3+"
+      },
+      {
+        "zeile": 6,
+        "paedagogik": 5,
+        "kunst": 11,
+        "spiel": 9,
+        "musik": 9,
+        "erwartet_endpunkte": 7.8,
+        "erwartet_tendenz": "3"
+      },
+      {
+        "zeile": 7,
+        "paedagogik": 12,
+        "kunst": 14,
+        "spiel": 10,
+        "musik": 12,
+        "erwartet_endpunkte": 12.0,
+        "erwartet_tendenz": "2+"
+      },
+      {
+        "zeile": 8,
+        "paedagogik": 4,
+        "kunst": 6,
+        "spiel": 6,
+        "musik": 10,
+        "erwartet_endpunkte": 6.0,
+        "erwartet_tendenz": "4+"
+      },
+      {
+        "zeile": 9,
+        "paedagogik": 12,
+        "kunst": 14,
+        "spiel": 10,
+        "musik": 11,
+        "erwartet_endpunkte": 11.8,
+        "erwartet_tendenz": "2+"
+      },
+      {
+        "zeile": 10,
+        "paedagogik": 14,
+        "kunst": 14,
+        "spiel": 12,
+        "musik": 11,
+        "erwartet_endpunkte": 13.0,
+        "erwartet_tendenz": "1-"
+      },
+      {
+        "zeile": 11,
+        "paedagogik": 8,
+        "kunst": 11,
+        "spiel": 6,
+        "musik": 10,
+        "erwartet_endpunkte": 8.6,
+        "erwartet_tendenz": "3+"
+      },
+      {
+        "zeile": 12,
+        "paedagogik": 6,
+        "kunst": 5,
+        "spiel": 8,
+        "musik": 9,
+        "erwartet_endpunkte": 6.8,
+        "erwartet_tendenz": "3-"
+      },
+      {
+        "zeile": 13,
+        "paedagogik": 11,
+        "kunst": 11,
+        "spiel": 10,
+        "musik": 11,
+        "erwartet_endpunkte": 10.8,
+        "erwartet_tendenz": "2"
+      },
+      {
+        "zeile": 14,
+        "paedagogik": 11,
+        "kunst": 14,
+        "spiel": 12,
+        "musik": 11,
+        "erwartet_endpunkte": 11.8,
+        "erwartet_tendenz": "2+"
+      },
+      {
+        "zeile": 15,
+        "paedagogik": 3,
+        "kunst": 8,
+        "spiel": 5,
+        "musik": 7,
+        "erwartet_endpunkte": 5.2,
+        "erwartet_tendenz": "4"
+      },
+      {
+        "zeile": 16,
+        "paedagogik": 9,
+        "kunst": 12,
+        "spiel": 11,
+        "musik": 12,
+        "erwartet_endpunkte": 10.6,
+        "erwartet_tendenz": "2"
+      },
+      {
+        "zeile": 17,
+        "paedagogik": 9,
+        "kunst": 12,
+        "spiel": 9,
+        "musik": 10,
+        "erwartet_endpunkte": 9.8,
+        "erwartet_tendenz": "2-"
+      },
+      {
+        "zeile": 18,
+        "paedagogik": 8,
+        "kunst": 11,
+        "spiel": 7,
+        "musik": 11,
+        "erwartet_endpunkte": 9.0,
+        "erwartet_tendenz": "3+"
+      },
+      {
+        "zeile": 19,
+        "paedagogik": 14,
+        "kunst": 14,
+        "spiel": 15,
+        "musik": 12,
+        "erwartet_endpunkte": 13.8,
+        "erwartet_tendenz": "1"
+      },
+      {
+        "zeile": 20,
+        "paedagogik": 5,
+        "kunst": 13,
+        "spiel": 9,
+        "musik": 10,
+        "erwartet_endpunkte": 8.4,
+        "erwartet_tendenz": "3"
+      },
+      {
+        "zeile": 21,
+        "paedagogik": 7,
+        "kunst": 8,
+        "spiel": 7,
+        "musik": 9,
+        "erwartet_endpunkte": 7.6,
+        "erwartet_tendenz": "3"
+      },
+      {
+        "zeile": 22,
+        "paedagogik": 10,
+        "kunst": 13,
+        "spiel": 11,
+        "musik": 12,
+        "erwartet_endpunkte": 11.2,
+        "erwartet_tendenz": "2"
+      },
+      {
+        "zeile": 23,
+        "paedagogik": 5,
+        "kunst": 5,
+        "spiel": 5,
+        "musik": 9,
+        "erwartet_endpunkte": 5.8,
+        "erwartet_tendenz": "4+"
+      },
+      {
+        "zeile": 24,
+        "paedagogik": 6,
+        "kunst": 8,
+        "spiel": 8,
+        "musik": 5,
+        "erwartet_endpunkte": 6.6,
+        "erwartet_tendenz": "3-"
+      },
+      {
+        "zeile": 25,
+        "paedagogik": 9,
+        "kunst": 10,
+        "spiel": 10,
+        "musik": 10,
+        "erwartet_endpunkte": 9.6,
+        "erwartet_tendenz": "2-"
+      },
+      {
+        "zeile": 26,
+        "paedagogik": 6,
+        "kunst": 8,
+        "spiel": 6,
+        "musik": 11,
+        "erwartet_endpunkte": 7.4,
+        "erwartet_tendenz": "3-"
+      },
+      {
+        "zeile": 27,
+        "paedagogik": 13,
+        "kunst": 14,
+        "spiel": 9,
+        "musik": 13,
+        "erwartet_endpunkte": 12.4,
+        "erwartet_tendenz": "2+"
+      },
+      {
+        "zeile": 28,
+        "paedagogik": 7,
+        "kunst": 10,
+        "spiel": 7,
+        "musik": 10,
+        "erwartet_endpunkte": 8.2,
+        "erwartet_tendenz": "3"
+      },
+      {
+        "zeile": 29,
+        "paedagogik": 8,
+        "kunst": 10,
+        "spiel": 11,
+        "musik": 6,
+        "erwartet_endpunkte": 8.6,
+        "erwartet_tendenz": "3+"
+      }
+    ]
+  },
+  "hinweis_filter": "Nur Schülerzeilen mit mindestens einer echten Komponenteneingabe; leere Plätze und Hilfszeilen ausgeschlossen."
+}
