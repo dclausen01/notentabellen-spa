@@ -19,6 +19,7 @@ import {
   zeugnisFuerKlasse,
 } from '../services/berechnung.js';
 import { baueEingabemaske } from '../services/eingabemaske.js';
+import { faecherFuerKlasse } from '../services/faecher.js';
 
 export interface AppOptions {
   db: DB;
@@ -103,6 +104,15 @@ export function baueApp({ db, authenticator, jwtSecret }: AppOptions): FastifyIn
     if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Klassen-ID' });
     if (!darfKlasseSehen(req, id)) return verboten(reply);
     return listeSchueler(db, id);
+  });
+
+  // Rollenabhängige Fächerauswahl einer Klasse (für die Eingabemaske im Frontend).
+  app.get('/api/klassen/:id/faecher', async (req, reply) => {
+    const id = zahl((req.params as { id: string }).id);
+    if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Klassen-ID' });
+    if (!darfKlasseSehen(req, id)) return verboten(reply);
+    const me = ident(req);
+    return faecherFuerKlasse(db, id, me, istKlassenleitung(db, me.lehrkraftId, id));
   });
 
   // --- Eingabemaske: Fachlehrkraft mit Auftrag, Klassenleitung der Klasse, Admin ---

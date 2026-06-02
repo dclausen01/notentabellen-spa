@@ -25,6 +25,7 @@ export {
   faecherFuerBildungsgang,
 } from './services/berechnung.js';
 export { baueEingabemaske } from './services/eingabemaske.js';
+export { faecherFuerKlasse, type FachOption } from './services/faecher.js';
 export { baueApp, type AppOptions } from './api/app.js';
 export type {
   Konfiguration,

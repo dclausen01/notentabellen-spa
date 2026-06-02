@@ -33,7 +33,24 @@ data/        # Seed-Konfiguration (Fächer, Komponenten, Notenskala, WPK-Kurse)
 docs/        # Spezifikation, Umsetzungsplan, Entscheidungen
 ```
 
+## Lokal starten
+
+```bash
+npm install
+npm run build
+
+# Backend: DB anlegen + API starten (LDAP/JWT-Env nötig, siehe packages/server/.env.example)
+cp packages/server/.env.example packages/server/.env   # Werte ausfüllen
+npm run db:init --workspace @notentabellen/server
+npm run dev --workspace @notentabellen/server           # API auf :3000
+
+# Frontend (Dev-Server mit Proxy auf :3000)
+npm run dev --workspace @notentabellen/web              # UI auf :5173
+```
+
+Tests/Checks über alle Pakete: `npm test`, `npm run typecheck`, `npm run build`.
+
 ## Status
 
-In Aufbau. Aktueller Stand und nächste Schritte: siehe Umsetzungsplan,
-Abschnitt „Meilensteinplan".
+In Aufbau. Fertig: M0–M5 (Rechenkern, DB/Seed, API, LDAP-Auth, Frontend).
+Aktueller Stand und nächste Schritte: siehe Umsetzungsplan, „Meilensteinplan".

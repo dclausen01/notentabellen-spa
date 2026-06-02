@@ -1,0 +1,134 @@
+:root {
+  --bg: #f6f7f9;
+  --card: #ffffff;
+  --text: #1f2933;
+  --muted: #6b7280;
+  --border: #d8dee4;
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --danger: #b91c1c;
+  --erfolg: #047857;
+  --na: #9ca3af;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+button:hover:not(:disabled) { background: var(--primary-dark); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary { background: #fff; color: var(--primary); }
+button.secondary:hover:not(:disabled) { background: #eef2ff; }
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--primary);
+  padding: 0 0.25rem;
+  font-size: 0.85rem;
+}
+.link-button:hover { background: none; text-decoration: underline; }
+
+/* Navbar */
+.navbar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+}
+.navbar-brand { font-weight: 700; }
+.navbar-links { display: flex; gap: 1rem; flex: 1; }
+.navbar-links a {
+  text-decoration: none;
+  color: var(--muted);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+.navbar-links a.active { color: var(--primary); background: #eef2ff; font-weight: 600; }
+.navbar-user { display: flex; align-items: center; gap: 0.75rem; color: var(--muted); font-size: 0.9rem; }
+
+.content { max-width: 1100px; margin: 1.5rem auto; padding: 0 1.5rem; }
+.page h2 { margin-top: 0; }
+.muted { color: var(--muted); }
+.fehler { color: var(--danger); }
+.erfolg { color: var(--erfolg); }
+
+/* Karten / Login */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+.login-wrap { display: flex; justify-content: center; padding-top: 8vh; }
+.login-card { width: 340px; display: flex; flex-direction: column; gap: 0.75rem; }
+.login-card h1 { font-size: 1.25rem; margin: 0; }
+.login-card label, .filterleiste label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+input, select {
+  font-size: 0.95rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text);
+}
+
+/* Filterleiste */
+.filterleiste {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+/* Tabellen */
+.tabelle-scroll { overflow-x: auto; }
+.tabelle {
+  border-collapse: collapse;
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.tabelle th, .tabelle td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.45rem 0.6rem;
+  text-align: center;
+}
+.tabelle th { background: #f1f5f9; font-weight: 600; font-size: 0.85rem; }
+.tabelle td.name, .tabelle th:first-child { text-align: left; white-space: nowrap; }
+.tabelle.zeugnis td:not(.name) { font-weight: 600; }
+.vorschau-spalte { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Noteneingabe-Zelle */
+.note-input { display: flex; align-items: center; gap: 0.25rem; justify-content: center; }
+.note-input input { width: 3.2rem; text-align: center; }
+.note-input.invalid input { border-color: var(--danger); background: #fef2f2; }
+.note-input.na { color: var(--na); }
+.na-label { font-style: italic; }
+.na-toggle { color: var(--na); }

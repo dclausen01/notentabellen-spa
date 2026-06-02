@@ -112,6 +112,14 @@ describe('Fachlehrkraft: nur eigenes Fach/Klasse/Halbjahr', () => {
     expect(k).toHaveLength(1);
     expect(k[0].id).toBe(klasse);
   });
+
+  it('Fächerauswahl der Klasse zeigt nur LF1 im 1. Hj.', async () => {
+    const token = await login('fachlk');
+    const f = JSON.parse((await req('GET', `/api/klassen/${klasse}/faecher`, token)).body);
+    expect(f).toHaveLength(1);
+    expect(f[0].schluessel).toBe('LF1');
+    expect(f[0].halbjahre).toEqual([1]);
+  });
 });
 
 describe('Klassenleitung: liest alle Fächer + Zeugnis der eigenen Klasse', () => {
