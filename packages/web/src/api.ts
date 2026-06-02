@@ -1,9 +1,16 @@
 import type {
+  AdminFach,
+  AuftraegeAntwort,
+  Bildungsgang,
   Eingabemaske,
   ErgebnisHalbjahr,
   FachOption,
   Identitaet,
   Klasse,
+  Lehrkraft,
+  Rolle,
+  Schueler,
+  SchemaUebersichtZeile,
   ZeugnisZeile,
 } from './types.js';
 
@@ -100,4 +107,57 @@ export const api = {
     apiFetch<{ gespeicherteErgebnisse: number }>(`/api/klassen/${klasseId}/berechnung`, {
       method: 'POST',
     }),
+
+  schueler: (klasseId: number) => apiFetch<Schueler[]>(`/api/klassen/${klasseId}/schueler`),
+};
+
+export const adminApi = {
+  bildungsgaenge: () => apiFetch<Bildungsgang[]>('/api/admin/bildungsgaenge'),
+  faecher: () => apiFetch<AdminFach[]>('/api/admin/faecher'),
+
+  erstelleKlasse: (body: { bezeichnung: string; schuljahr: string; bildungsgang: string }) =>
+    apiFetch<{ id: number }>('/api/admin/klassen', { method: 'POST', body: JSON.stringify(body) }),
+
+  erstelleSchueler: (klasseId: number, body: { name: string; vorname: string }) =>
+    apiFetch<{ id: number }>(`/api/admin/klassen/${klasseId}/schueler`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  deaktiviereSchueler: (id: number) =>
+    apiFetch<void>(`/api/admin/schueler/${id}`, { method: 'DELETE' }),
+
+  lehrkraefte: () => apiFetch<Lehrkraft[]>('/api/admin/lehrkraefte'),
+
+  erstelleLehrkraft: (body: { name: string; loginSub: string; rolle: Rolle }) =>
+    apiFetch<{ id: number }>('/api/admin/lehrkraefte', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  auftraege: (lehrkraftId: number) =>
+    apiFetch<AuftraegeAntwort>(`/api/admin/lehrkraefte/${lehrkraftId}/auftraege`),
+
+  erstelleLehrauftrag: (body: {
+    lehrkraftId: number;
+    fach: string;
+    klasseId: number;
+    halbjahr: number;
+  }) => apiFetch<{ ok: true }>('/api/admin/lehrauftraege', { method: 'POST', body: JSON.stringify(body) }),
+
+  entferneLehrauftrag: (id: number) =>
+    apiFetch<void>(`/api/admin/lehrauftraege/${id}`, { method: 'DELETE' }),
+
+  setzeKlassenleitung: (body: { lehrkraftId: number; klasseId: number }) =>
+    apiFetch<{ ok: true }>('/api/admin/klassenleitung', { method: 'POST', body: JSON.stringify(body) }),
+
+  entferneKlassenleitung: (lehrkraftId: number, klasseId: number) =>
+    apiFetch<void>(`/api/admin/klassenleitung?lehrkraftId=${lehrkraftId}&klasseId=${klasseId}`, {
+      method: 'DELETE',
+    }),
+
+  schemata: (bildungsgang: string) =>
+    apiFetch<SchemaUebersichtZeile[]>(
+      `/api/admin/schemata?bildungsgang=${encodeURIComponent(bildungsgang)}`,
+    ),
 };

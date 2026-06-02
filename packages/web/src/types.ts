@@ -70,3 +70,70 @@ export interface ZeugnisZeile {
   vorname: string;
   faecher: ZeugnisZelle[];
 }
+
+// --- Administration ---
+
+export interface Bildungsgang {
+  id: number;
+  schluessel: string;
+  bezeichnung: string;
+}
+
+export interface AdminFach {
+  id: number;
+  schluessel: string;
+  name: string;
+  typ: 'LF' | 'FACH';
+}
+
+export interface Lehrkraft {
+  id: number;
+  name: string;
+  login_sub: string;
+  rolle: Rolle;
+}
+
+export interface Schueler {
+  id: number;
+  name: string;
+  vorname: string;
+  klasse_id: number;
+  aktiv: number;
+}
+
+export interface LehrauftragZeile {
+  id: number;
+  fach: string;
+  fachName: string;
+  klasseId: number;
+  klasse: string;
+  halbjahr: number;
+}
+
+export interface KlassenleitungZeile {
+  klasseId: number;
+  klasse: string;
+}
+
+export interface AuftraegeAntwort {
+  lehrauftraege: LehrauftragZeile[];
+  klassenleitungen: KlassenleitungZeile[];
+}
+
+export interface SchemaUebersichtKomponente {
+  schluessel: string;
+  name: string;
+  gewichtFix: number | null;
+  restAnteil: boolean;
+}
+
+export interface SchemaUebersichtZeile {
+  fach: string;
+  fachName: string;
+  halbjahr: number;
+  halbjahrModus: string;
+  kumulationModus: string;
+  deaktivierbar: boolean;
+  aktiv: boolean;
+  komponenten: SchemaUebersichtKomponente[];
+}

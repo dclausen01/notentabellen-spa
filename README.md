@@ -52,5 +52,6 @@ Tests/Checks über alle Pakete: `npm test`, `npm run typecheck`, `npm run build`
 
 ## Status
 
-In Aufbau. Fertig: M0–M5 (Rechenkern, DB/Seed, API, LDAP-Auth, Frontend).
-Aktueller Stand und nächste Schritte: siehe Umsetzungsplan, „Meilensteinplan".
+In Aufbau. Fertig: M0–M6 (Rechenkern, DB/Seed, API, LDAP-Auth, Frontend,
+Admin-UI). Aktueller Stand und nächste Schritte: siehe Umsetzungsplan,
+„Meilensteinplan".

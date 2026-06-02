@@ -12,7 +12,27 @@ import {
 import type { DB } from '../db/connection.js';
 import { fachId } from '../db/lade-eingaben.js';
 import { speichereDirektnote, speichereKomponentennote } from '../db/noten.js';
-import { listeKlassen, listeSchueler } from '../db/stammdaten.js';
+import {
+  erstelleKlasse,
+  erstelleLehrauftrag,
+  erstelleLehrkraft,
+  erstelleSchueler,
+  listeKlassen,
+  listeSchueler,
+  setzeKlassenleitung,
+  type Rolle,
+} from '../db/stammdaten.js';
+import {
+  deaktiviereSchueler,
+  entferneKlassenleitung,
+  entferneLehrauftrag,
+  klassenleitungenVonLehrkraft,
+  lehrauftraegeVonLehrkraft,
+  listeBildungsgaenge,
+  listeFaecher,
+  listeLehrkraefte,
+  schemaUebersicht,
+} from '../db/admin.js';
 import {
   berechneFachFuerSchueler,
   berechneKlasse,
@@ -65,6 +85,8 @@ export function baueApp({ db, authenticator, jwtSecret }: AppOptions): FastifyIn
     return ids === 'alle' || ids.includes(klasseId);
   };
   const verboten = (reply: FastifyReply) => reply.code(403).send({ fehler: 'Kein Zugriff' });
+
+  const ROLLEN: Rolle[] = ['fach', 'klassenleitung', 'admin'];
 
   app.get('/health', async () => ({ status: 'ok' }));
 
@@ -271,5 +293,146 @@ export function baueApp({ db, authenticator, jwtSecret }: AppOptions): FastifyIn
     }
   });
 
+  // ===================================================================
+  // Administration (nur Rolle 'admin'). Pflege der Stammdaten und der
+  // Login-/Zugriffsprovisionierung ohne direkten SQL-Zugriff.
+  // ===================================================================
+
+  // Gemeinsamer Admin-Schutz für alle /api/admin/*-Routen.
+  app.addHook('onRequest', async (req, reply) => {
+    const url = req.routeOptions.url ?? req.url;
+    if (url.startsWith('/api/admin/') && !istAdmin(req)) return verboten(reply);
+  });
+
+  app.get('/api/admin/bildungsgaenge', async () => listeBildungsgaenge(db));
+  app.get('/api/admin/faecher', async () => listeFaecher(db));
+
+  // --- Klassen & Schüler:innen ---
+  app.post('/api/admin/klassen', async (req, reply) => {
+    const b = req.body as Partial<{ bezeichnung: string; schuljahr: string; bildungsgang: string }>;
+    if (!b.bezeichnung || !b.schuljahr || !b.bildungsgang) {
+      return reply.code(400).send({ fehler: 'bezeichnung, schuljahr und bildungsgang erforderlich' });
+    }
+    try {
+      const id = erstelleKlasse(db, b.bezeichnung, b.schuljahr, b.bildungsgang);
+      return reply.code(201).send({ id });
+    } catch (e) {
+      return reply.code(400).send({ fehler: konfliktText(e, 'Klasse existiert bereits') });
+    }
+  });
+
+  app.post('/api/admin/klassen/:id/schueler', async (req, reply) => {
+    const klasseId = zahl((req.params as { id: string }).id);
+    if (klasseId === undefined) return reply.code(400).send({ fehler: 'Ungültige Klassen-ID' });
+    const b = req.body as Partial<{ name: string; vorname: string }>;
+    if (!b.name || !b.vorname) {
+      return reply.code(400).send({ fehler: 'name und vorname erforderlich' });
+    }
+    try {
+      const id = erstelleSchueler(db, b.name, b.vorname, klasseId);
+      return reply.code(201).send({ id });
+    } catch (e) {
+      return reply.code(400).send({ fehler: konfliktText(e, 'Schüler:in konnte nicht angelegt werden') });
+    }
+  });
+
+  app.delete('/api/admin/schueler/:id', async (req, reply) => {
+    const id = zahl((req.params as { id: string }).id);
+    if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Schüler-ID' });
+    deaktiviereSchueler(db, id);
+    return reply.code(204).send();
+  });
+
+  // --- Lehrkräfte (Login-Provisionierung) ---
+  app.get('/api/admin/lehrkraefte', async () => listeLehrkraefte(db));
+
+  app.post('/api/admin/lehrkraefte', async (req, reply) => {
+    const b = req.body as Partial<{ name: string; loginSub: string; rolle: Rolle }>;
+    if (!b.name || !b.loginSub || !b.rolle) {
+      return reply.code(400).send({ fehler: 'name, loginSub und rolle erforderlich' });
+    }
+    if (!ROLLEN.includes(b.rolle)) {
+      return reply.code(400).send({ fehler: 'Ungültige Rolle' });
+    }
+    try {
+      const id = erstelleLehrkraft(db, b.name, b.loginSub, b.rolle);
+      return reply.code(201).send({ id });
+    } catch (e) {
+      return reply.code(400).send({ fehler: konfliktText(e, 'Login-Kennung bereits vergeben') });
+    }
+  });
+
+  app.get('/api/admin/lehrkraefte/:id/auftraege', async (req, reply) => {
+    const id = zahl((req.params as { id: string }).id);
+    if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Lehrkraft-ID' });
+    return {
+      lehrauftraege: lehrauftraegeVonLehrkraft(db, id),
+      klassenleitungen: klassenleitungenVonLehrkraft(db, id),
+    };
+  });
+
+  // --- Lehraufträge ---
+  app.post('/api/admin/lehrauftraege', async (req, reply) => {
+    const b = req.body as Partial<{
+      lehrkraftId: number;
+      fach: string;
+      klasseId: number;
+      halbjahr: number;
+    }>;
+    if (b.lehrkraftId === undefined || !b.fach || b.klasseId === undefined || b.halbjahr === undefined) {
+      return reply.code(400).send({ fehler: 'lehrkraftId, fach, klasseId und halbjahr erforderlich' });
+    }
+    if (b.halbjahr < 1 || b.halbjahr > 4) {
+      return reply.code(400).send({ fehler: 'halbjahr muss zwischen 1 und 4 liegen' });
+    }
+    try {
+      erstelleLehrauftrag(db, b.lehrkraftId, b.fach, b.klasseId, b.halbjahr);
+      return reply.code(201).send({ ok: true });
+    } catch (e) {
+      return reply.code(400).send({ fehler: (e as Error).message });
+    }
+  });
+
+  app.delete('/api/admin/lehrauftraege/:id', async (req, reply) => {
+    const id = zahl((req.params as { id: string }).id);
+    if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Auftrags-ID' });
+    entferneLehrauftrag(db, id);
+    return reply.code(204).send();
+  });
+
+  // --- Klassenleitung ---
+  app.post('/api/admin/klassenleitung', async (req, reply) => {
+    const b = req.body as Partial<{ lehrkraftId: number; klasseId: number }>;
+    if (b.lehrkraftId === undefined || b.klasseId === undefined) {
+      return reply.code(400).send({ fehler: 'lehrkraftId und klasseId erforderlich' });
+    }
+    setzeKlassenleitung(db, b.lehrkraftId, b.klasseId);
+    return reply.code(201).send({ ok: true });
+  });
+
+  app.delete('/api/admin/klassenleitung', async (req, reply) => {
+    const q = req.query as { lehrkraftId?: string; klasseId?: string };
+    const lehrkraftId = zahl(q.lehrkraftId);
+    const klasseId = zahl(q.klasseId);
+    if (lehrkraftId === undefined || klasseId === undefined) {
+      return reply.code(400).send({ fehler: 'lehrkraftId und klasseId erforderlich' });
+    }
+    entferneKlassenleitung(db, lehrkraftId, klasseId);
+    return reply.code(204).send();
+  });
+
+  // --- Bewertungsschemata (schreibgeschützte Übersicht) ---
+  app.get('/api/admin/schemata', async (req, reply) => {
+    const q = req.query as { bildungsgang?: string };
+    if (!q.bildungsgang) return reply.code(400).send({ fehler: 'bildungsgang erforderlich' });
+    return schemaUebersicht(db, q.bildungsgang);
+  });
+
   return app;
+}
+
+/** Bei UNIQUE-Verstößen eine verständliche Meldung, sonst die Originalmeldung. */
+function konfliktText(e: unknown, beiKonflikt: string): string {
+  const msg = (e as Error).message ?? '';
+  return msg.includes('UNIQUE') ? beiKonflikt : msg;
 }
