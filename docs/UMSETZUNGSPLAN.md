@@ -305,8 +305,10 @@ GET   /admin/notenskala /admin/wpk-kurse
 3. **LF3-3.-Hj.-Rundung & ungerundete Kumulation** (3.4): Korrektur akzeptiert?
 4. **SSO-Details:** Nextcloud als OIDC-Provider verfügbar? Alternativ
    LDAP-Bind? Welche Claims liefern Rolle/Name?
-5. **Bestandsdaten-Migration:** Sollen reale Altdaten übernommen werden oder
-   startet das System mit dem laufenden Schuljahr neu?
+5. ~~**Bestandsdaten-Migration:** Sollen reale Altdaten übernommen werden oder
+   startet das System mit dem laufenden Schuljahr neu?~~ — **geklärt:**
+   **Neustart** ohne Import; Stamm- und Notendaten werden frisch über die
+   Admin-UI/Eingabemaske gepflegt. Ein Migrationsskript entfällt.
 6. **Weitere Bildungsgänge/Klassen** mit abweichenden Fächern/Gewichten künftig
    zu erwarten? (Beeinflusst Generalisierungsgrad der Admin-UI.)
 
@@ -323,15 +325,14 @@ GET   /admin/notenskala /admin/wpk-kurse
 | **M4** ✅ | Auth (LDAP/AD-Bind) + JWT + Rollen + Lehrauftrag-Filter + Audit-Akteur | Zugriff erzwungen, auditiert |
 | **M5** ✅ | React-Frontend: Login + Eingabemaske + Zeugnisansicht | End-to-end klickbar |
 | **M6** ✅ | Admin-UI (Stammdaten, Lehrkräfte/Lehraufträge/Klassenleitung, Schema-Übersicht) | Konfiguration ohne SQL pflegbar |
-| **M7** 🟡 | Export (XLSX ✅, PDF offen), Betriebs-/Backup-Doku ✅, Migration Altdaten (offen) | übergabefähig |
+| **M7** 🟡 | Export (XLSX ✅, PDF optional/offen), Betriebs-/Backup-Doku ✅, Migration ⊘ entfällt | übergabefähig |
 
 **Stand M7:** Zeugnis-Export als **XLSX** (Blätter „Tendenznoten" + „Endpunkte")
 ist umgesetzt (Button in der Zeugnisansicht; nur Klassenleitung/Admin).
 Betriebs-/Deployment-/Backup-Dokumentation liegt in
 [`BETRIEB.md`](BETRIEB.md). Diagnose-/Bootstrap-CLIs `ldap-test` und
-`seed-admin` sind vorhanden. **Offen:** PDF-Export und die Migration der
-Excel-Bestandsdaten — Letztere hängt an Frage #5 (reale Altdaten übernehmen
-oder mit laufendem Schuljahr neu starten?).
+`seed-admin` sind vorhanden. **Migration entfällt** (Entscheidung: Neustart,
+s. §11.5). **Offen/optional:** PDF-Export — wird auf Wunsch ergänzt.
 
 **Admin-UI (M6):** Administrationsbereich im Frontend (nur Rolle `admin`),
 serverseitig über `/api/admin/*` (eigener Admin-Hook) abgesichert. Funktionen:
