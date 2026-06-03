@@ -143,6 +143,28 @@ export function deaktiviereSchueler(db: DB, id: number): void {
   db.prepare('UPDATE schueler SET aktiv = 0 WHERE id = ?').run(id);
 }
 
+/**
+ * Löscht eine Klasse endgültig samt allem, was an ihr hängt: Schüler:innen mit
+ * ihren Noten/Ergebnissen, Lehraufträge, Klassenleitung und
+ * Komponenten-Deaktivierungen. In einer Transaktion (keine verwaisten
+ * Fremdschlüssel).
+ */
+export function loescheKlasse(db: DB, klasseId: number): void {
+  const schuelerFilter = 'schueler_id IN (SELECT id FROM schueler WHERE klasse_id = ?)';
+  const tx = db.transaction(() => {
+    db.prepare(`DELETE FROM komponentennote WHERE ${schuelerFilter}`).run(klasseId);
+    db.prepare(`DELETE FROM fachnote_direkt WHERE ${schuelerFilter}`).run(klasseId);
+    db.prepare(`DELETE FROM wpk_eingabe WHERE ${schuelerFilter}`).run(klasseId);
+    db.prepare(`DELETE FROM ergebnis WHERE ${schuelerFilter}`).run(klasseId);
+    db.prepare('DELETE FROM schueler WHERE klasse_id = ?').run(klasseId);
+    db.prepare('DELETE FROM lehrauftrag WHERE klasse_id = ?').run(klasseId);
+    db.prepare('DELETE FROM klassenleitung WHERE klasse_id = ?').run(klasseId);
+    db.prepare('DELETE FROM komponente_deaktiviert WHERE klasse_id = ?').run(klasseId);
+    db.prepare('DELETE FROM klasse WHERE id = ?').run(klasseId);
+  });
+  tx();
+}
+
 export function aktualisiereSchueler(db: DB, id: number, name: string, vorname: string): void {
   db.prepare('UPDATE schueler SET name = ?, vorname = ? WHERE id = ?').run(name, vorname, id);
 }

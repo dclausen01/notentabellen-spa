@@ -173,6 +173,23 @@ function StammdatenBereich() {
     }
   }
 
+  async function loescheKlasse(id: number) {
+    if (
+      !confirm(
+        'Klasse ENDGÜLTIG löschen? Alle Schüler:innen, Noten, Lehraufträge und Einstellungen dieser Klasse gehen unwiderruflich verloren.',
+      )
+    )
+      return;
+    setFehler(null);
+    try {
+      await adminApi.loescheKlasse(id);
+      if (aktiveKlasse === id) setAktiveKlasse(null);
+      await ladeKlassen();
+    } catch (err) {
+      setFehler(fehlerText(err));
+    }
+  }
+
   return (
     <div className="admin-grid">
       <section className="card">
@@ -210,7 +227,7 @@ function StammdatenBereich() {
               <th>Bezeichnung</th>
               <th>Schuljahr</th>
               <th>Bildungsgang</th>
-              <th>Schüler:innen</th>
+              <th />
             </tr>
           </thead>
           <tbody>
@@ -219,13 +236,20 @@ function StammdatenBereich() {
                 <td className="name">{k.bezeichnung}</td>
                 <td>{k.schuljahr}</td>
                 <td>{k.bildungsgang}</td>
-                <td>
+                <td className="aktionen">
                   <button
                     type="button"
                     className="link-button"
                     onClick={() => setAktiveKlasse(aktiveKlasse === k.id ? null : k.id)}
                   >
                     {aktiveKlasse === k.id ? 'schließen' : 'verwalten'}
+                  </button>
+                  <button
+                    type="button"
+                    className="link-button gefahr"
+                    onClick={() => void loescheKlasse(k.id)}
+                  >
+                    löschen
                   </button>
                 </td>
               </tr>

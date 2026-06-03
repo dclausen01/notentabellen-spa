@@ -159,6 +159,9 @@ export const adminApi = {
   erstelleKlasse: (body: { bezeichnung: string; schuljahr: string; bildungsgang: string }) =>
     apiFetch<{ id: number }>('/api/admin/klassen', { method: 'POST', body: JSON.stringify(body) }),
 
+  loescheKlasse: (id: number) =>
+    apiFetch<void>(`/api/admin/klassen/${id}`, { method: 'DELETE' }),
+
   erstelleSchueler: (klasseId: number, body: { name: string; vorname: string }) =>
     apiFetch<{ id: number }>(`/api/admin/klassen/${klasseId}/schueler`, {
       method: 'POST',

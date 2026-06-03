@@ -33,6 +33,7 @@ import {
   aktualisiereLehrkraftName,
   aktualisiereSchueler,
   deaktiviereSchueler,
+  loescheKlasse,
   loescheSchuelerHart,
   entferneKlassenleitung,
   entferneLehrauftrag,
@@ -446,6 +447,13 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
     } catch (e) {
       return reply.code(400).send({ fehler: konfliktText(e, 'Klasse existiert bereits') });
     }
+  });
+
+  app.delete('/api/admin/klassen/:id', async (req, reply) => {
+    const id = zahl((req.params as { id: string }).id);
+    if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Klassen-ID' });
+    loescheKlasse(db, id);
+    return reply.code(204).send();
   });
 
   app.post('/api/admin/klassen/:id/schueler', async (req, reply) => {

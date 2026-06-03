@@ -82,6 +82,37 @@ describe('Stammdaten anlegen', () => {
     expect(liste.body.map((x: any) => x.name)).toContain('Mustermann');
   });
 
+  it('löscht eine Klasse endgültig samt Schüler:innen, Noten und Zuordnungen', async () => {
+    const klasseId = erstelleKlasse(db, 'SPA Weg', '2025/26', 'SPA_PIA');
+    const s = await json('POST', `/api/admin/klassen/${klasseId}/schueler`, adminToken, {
+      name: 'A', vorname: 'B',
+    });
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: s.body.id, fach: 'LF1', halbjahr: 1, wert: 9, istNa: false,
+    });
+    const lk = await json('GET', '/api/admin/lehrkraefte', adminToken);
+    const lehrkraftId = lk.body.find((l: any) => l.login_sub === 'lehrer').id;
+    await json('POST', '/api/admin/lehrauftraege', adminToken, { lehrkraftId, fach: 'LF1', klasseId });
+    await json('POST', '/api/admin/klassenleitung', adminToken, { lehrkraftId, klasseId });
+
+    const r = await json('DELETE', `/api/admin/klassen/${klasseId}`, adminToken);
+    expect(r.status).toBe(204);
+
+    expect(db.prepare('SELECT 1 FROM klasse WHERE id = ?').get(klasseId)).toBeUndefined();
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM schueler WHERE klasse_id = ?').get(klasseId) as { n: number }).n,
+    ).toBe(0);
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM fachnote_direkt WHERE schueler_id = ?').get(s.body.id) as { n: number }).n,
+    ).toBe(0);
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM lehrauftrag WHERE klasse_id = ?').get(klasseId) as { n: number }).n,
+    ).toBe(0);
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM klassenleitung WHERE klasse_id = ?').get(klasseId) as { n: number }).n,
+    ).toBe(0);
+  });
+
   it('doppelte Klasse → 400 mit verständlicher Meldung', async () => {
     const payload = { bezeichnung: 'SPA A', schuljahr: '2025/26', bildungsgang: 'SPA_REGULAR' };
     await json('POST', '/api/admin/klassen', adminToken, payload);
