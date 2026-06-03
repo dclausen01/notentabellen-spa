@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { baueApp } from './api/app.js';
 import { LdapAuthenticator, ldapConfigAusEnv } from './auth/ldap.js';
@@ -14,35 +14,57 @@ ladeEnvDatei();
 const pfad = process.env['DB_PFAD'] ?? 'notentabellen.sqlite';
 const port = Number(process.env['PORT'] ?? 4000);
 
-const jwtSecret = process.env['JWT_SECRET'];
-if (!jwtSecret) {
-  console.error('JWT_SECRET fehlt (Umgebungsvariable). Server startet nicht.');
+/**
+ * Startfehler laut machen: in stderr UND in eine Datei neben der DB schreiben.
+ * Passenger verschluckt stdout/stderr je nach Konfiguration — die Datei ist
+ * verlässlich auffindbar (gleiches, schreibbares Verzeichnis wie die DB).
+ */
+function startFehler(kontext: string, err: unknown): never {
+  const text = `[${new Date().toISOString()}] ${kontext}\n${(err as Error)?.stack ?? String(err)}\n`;
+  console.error(kontext, err);
+  try {
+    if (pfad !== ':memory:') writeFileSync(join(dirname(pfad), 'startup-error.log'), text);
+  } catch {
+    /* Datei-Logging ist best effort */
+  }
   process.exit(1);
 }
 
+const jwtSecret = process.env['JWT_SECRET'];
+if (!jwtSecret) {
+  startFehler('JWT_SECRET fehlt (Umgebungsvariable). Server startet nicht.', new Error('JWT_SECRET fehlt'));
+}
+
 // Verzeichnis der SQLite-Datei sicherstellen — SQLite legt die Datei selbst an,
-// aber nicht den Ordner darüber. Ohne das scheitert der Start mit
-// "unable to open database file", wenn DB_PFAD in ein noch fehlendes
-// Verzeichnis zeigt. Schlägt das Anlegen fehl (z. B. Rechte), klare Meldung.
+// aber nicht den Ordner darüber.
 if (pfad !== ':memory:') {
   try {
     mkdirSync(dirname(pfad), { recursive: true });
   } catch (err) {
-    console.error(`Datenbankverzeichnis ${dirname(pfad)} konnte nicht angelegt werden:`, err);
-    process.exit(1);
+    startFehler(`Datenbankverzeichnis ${dirname(pfad)} konnte nicht angelegt werden`, err);
   }
 }
 
-const db = openDb(pfad);
-migrate(db);
-seed(db);
+let db;
+try {
+  db = openDb(pfad);
+  migrate(db);
+  seed(db);
+} catch (err) {
+  startFehler('Fehler bei Datenbank-Initialisierung (Migration/Seed)', err);
+}
 
 // Gebautes Frontend (packages/web/dist) mitausliefern, falls vorhanden.
 const webRoot = fileURLToPath(new URL('../../web/dist', import.meta.url));
 const webVorhanden = existsSync(webRoot);
 
-const authenticator = new LdapAuthenticator(ldapConfigAusEnv());
-const app = baueApp({ db, authenticator, jwtSecret, ...(webVorhanden ? { webRoot } : {}) });
+let app;
+try {
+  const authenticator = new LdapAuthenticator(ldapConfigAusEnv());
+  app = baueApp({ db, authenticator, jwtSecret, ...(webVorhanden ? { webRoot } : {}) });
+} catch (err) {
+  startFehler('Fehler beim Aufbau der App (LDAP-Konfiguration?)', err);
+}
 
 app
   .listen({ port, host: '0.0.0.0' })
@@ -52,7 +74,4 @@ app
         (webVorhanden ? ` — Frontend wird mitausgeliefert, App im Browser unter ${addr}` : ' — Frontend nicht gebaut (npm run build)'),
     ),
   )
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+  .catch((err) => startFehler('Fehler beim Binden des Ports', err));
