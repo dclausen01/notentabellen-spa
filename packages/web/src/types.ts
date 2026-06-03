@@ -45,6 +45,16 @@ export interface WpkKursOption {
   name: string;
 }
 
+export interface VorwertZeile {
+  schuelerId: number;
+  endpunkte: number | null;
+  tendenz: string | null;
+}
+export interface VorwertInfo {
+  label: string | null;
+  werte: VorwertZeile[];
+}
+
 export interface Eingabemaske {
   klasseId: number;
   fach: string;
@@ -55,6 +65,8 @@ export interface Eingabemaske {
   komponenten: MaskeKomponente[];
   zeilen: MaskeZeile[];
   wpkKurse?: WpkKursOption[];
+  /** Zur Orientierung: Wert aus Vorhalbjahr/Quelle, der in die Endnote einfließt. */
+  vorwerte?: VorwertInfo;
 }
 
 export interface ErgebnisHalbjahr {

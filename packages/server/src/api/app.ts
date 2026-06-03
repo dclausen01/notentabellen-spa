@@ -44,6 +44,7 @@ import {
 import {
   berechneFachFuerSchueler,
   berechneKlasse,
+  vorwerteFuer,
   zeugnisFuerKlasse,
 } from '../services/berechnung.js';
 import { baueEingabemaske } from '../services/eingabemaske.js';
@@ -197,7 +198,9 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
       hatLehrauftrag(db, id.lehrkraftId, q.fach, klasseId, halbjahr);
     if (!erlaubt) return verboten(reply);
     try {
-      return baueEingabemaske(db, klasseId, q.fach, halbjahr);
+      const maske = baueEingabemaske(db, klasseId, q.fach, halbjahr);
+      const vorwerte = vorwerteFuer(db, klasseId, q.fach, halbjahr);
+      return { ...maske, ...(vorwerte.label ? { vorwerte } : {}) };
     } catch (e) {
       return reply.code(404).send({ fehler: (e as Error).message });
     }

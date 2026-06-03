@@ -7,6 +7,7 @@ import type {
   FachOption,
   Klasse,
   MaskeWert,
+  VorwertInfo,
 } from '../types.js';
 
 export function EingabePage() {
@@ -162,6 +163,9 @@ export function EingabePage() {
       </div>
 
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
+      {maske?.vorwerte?.label && (
+        <p className="muted">Verrechnung: {maske.vorwerte.label}</p>
+      )}
 
       {maske && (
         <table className="tabelle">
@@ -172,6 +176,7 @@ export function EingabePage() {
               {maske.modus === 'komponenten_gewichtet'
                 ? maske.komponenten.map((k) => <th key={k.id}>{k.name}</th>)
                 : <th>Note</th>}
+              {maske.vorwerte && <th className="vorschau-spalte">Vorwert</th>}
               <th className="vorschau-spalte">Endnote (Vorschau)</th>
             </tr>
           </thead>
@@ -215,6 +220,9 @@ export function EingabePage() {
                     />
                   </td>
                 )}
+                {maske.vorwerte && (
+                  <td className="vorschau-spalte">{vorwertText(maske.vorwerte, z.schuelerId)}</td>
+                )}
                 <td className="vorschau-spalte">{vorschau[z.schuelerId] ?? '…'}</td>
               </tr>
             ))}
@@ -224,6 +232,7 @@ export function EingabePage() {
                   colSpan={
                     2 +
                     (maske.wpkKurse ? 1 : 0) +
+                    (maske.vorwerte ? 1 : 0) +
                     (maske.modus === 'komponenten_gewichtet' ? maske.komponenten.length : 1)
                   }
                   className="muted"
@@ -237,6 +246,12 @@ export function EingabePage() {
       )}
     </div>
   );
+}
+
+function vorwertText(info: VorwertInfo, schuelerId: number): string {
+  const z = info.werte.find((w) => w.schuelerId === schuelerId);
+  if (!z || z.endpunkte == null) return '–';
+  return z.tendenz ? `${z.tendenz} (${z.endpunkte.toFixed(1)})` : z.endpunkte.toFixed(1);
 }
 
 function komponentenUpdate(

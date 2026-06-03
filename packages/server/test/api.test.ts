@@ -158,6 +158,33 @@ describe('Zeugnis respektiert Bildungsgang (reguläre Praxis nur 2.+3. Hj.)', ()
   });
 });
 
+describe('Vorwert-Anzeige (#7): zu verrechnender Wert aus Vorhalbjahr/Quelle', () => {
+  it('LF1 (50/50): 2. Hj. zeigt die Endnote des 1. Hj. als Vorwert', async () => {
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: schueler, fach: 'LF1', halbjahr: 1, wert: 10, istNa: false,
+    });
+    const m = await json('GET', `/api/eingabe?klasseId=${piaKlasse}&fach=LF1&halbjahr=2`, adminToken);
+    expect(m.body.vorwerte.label).toMatch(/1\. Hj/);
+    const z = m.body.vorwerte.werte.find((w: any) => w.schuelerId === schueler);
+    expect(z.endpunkte).toBe(10);
+  });
+
+  it('1. Hj. hat keinen Vorwert (kein Vorhalbjahr)', async () => {
+    const m = await json('GET', `/api/eingabe?klasseId=${piaKlasse}&fach=LF1&halbjahr=1`, adminToken);
+    expect(m.body.vorwerte).toBeUndefined();
+  });
+
+  it('Praxis PiA 4. Hj. zeigt Blockpraxis(3.) als Vorwert', async () => {
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: schueler, fach: 'BLOCKPRAXIS', halbjahr: 3, wert: 9, istNa: false,
+    });
+    const m = await json('GET', `/api/eingabe?klasseId=${piaKlasse}&fach=PRAXIS&halbjahr=4`, adminToken);
+    expect(m.body.vorwerte.label).toMatch(/Blockpraxis/);
+    const z = m.body.vorwerte.werte.find((w: any) => w.schuelerId === schueler);
+    expect(z.endpunkte).toBe(9);
+  });
+});
+
 describe('Praxis PiA: nur 2.+4. Hj., 4. Hj. = 0,7·Praxis(4.) + 0,3·Blockpraxis(3.)', () => {
   it('Praxis ist in PiA im 1. und 3. Hj. nicht aktiv, in 2. und 4. schon', async () => {
     const f = async (hj: number) =>

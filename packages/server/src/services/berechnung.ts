@@ -145,6 +145,105 @@ export interface ZeugnisZeile {
   faecher: ZeugnisZelle[];
 }
 
+export interface VorwertZeile {
+  schuelerId: number;
+  endpunkte: number | null;
+  tendenz: string | null;
+}
+export interface VorwertInfo {
+  /** Kurzbeschreibung der Verrechnung, oder null wenn es keinen Vorwert gibt. */
+  label: string | null;
+  werte: VorwertZeile[];
+}
+
+/**
+ * Ermittelt zur Orientierung den Wert, der aus einem anderen Halbjahr/Fach in
+ * die Endnote des gewählten Halbjahres einfließt (für die ausgegraute Anzeige
+ * in der Eingabemaske):
+ * - `fortlaufend_50_50`: Endnote des vorherigen aktiven Halbjahres (50 %).
+ * - `gewichtet_vorgaenger` (extern): Endnote des Quellfachs/-halbjahres (z. B.
+ *   Blockpraxis 3. Hj., 30 %).
+ * - `mittelwert_halbjahre`: das andere gemittelte Halbjahr.
+ * - `keine`: kein Vorwert.
+ */
+export function vorwerteFuer(
+  db: DB,
+  klasseId: number,
+  fachSchluessel: string,
+  halbjahr: number,
+): VorwertInfo {
+  const leer: VorwertInfo = { label: null, werte: [] };
+  const bg = db
+    .prepare(
+      `SELECT bg.schluessel FROM klasse k JOIN bildungsgang bg ON bg.id = k.bildungsgang_id WHERE k.id = ?`,
+    )
+    .get(klasseId) as { schluessel: string } | undefined;
+  if (!bg) return leer;
+
+  const schema = ladeSchema(db, fachSchluessel, bg.schluessel);
+  const aktuell = schema.find((s) => s.halbjahr === halbjahr);
+  if (!aktuell || !aktuell.aktiv) return leer;
+
+  let label: string | null = null;
+  let quellHalbjahr: number | null = null; // gleiches Fach
+  let externFach: string | null = null; // anderes Fach
+  let externHalbjahr: number | null = null;
+
+  if (aktuell.kumulationModus === 'fortlaufend_50_50') {
+    const vor = schema
+      .filter((s) => s.aktiv && s.halbjahr < halbjahr)
+      .map((s) => s.halbjahr)
+      .sort((a, b) => b - a)[0];
+    if (vor !== undefined) {
+      quellHalbjahr = vor;
+      label = `Endnote ${vor}. Hj. — fließt zu 50 % ein`;
+    }
+  } else if (aktuell.kumulationModus === 'mittelwert_halbjahre') {
+    const andere = (aktuell.mittelwertHalbjahre ?? []).filter(
+      (h) => h !== halbjahr && schema.find((s) => s.halbjahr === h)?.aktiv,
+    );
+    if (andere[0] !== undefined) {
+      quellHalbjahr = andere[0];
+      label = `${andere[0]}. Hj. — Mittelwert mit diesem Halbjahr`;
+    }
+  } else if (aktuell.kumulationModus === 'gewichtet_vorgaenger') {
+    const ref = db
+      .prepare(
+        `SELECT bs.extern_fach AS f, bs.extern_halbjahr AS h, bs.gewicht_extern AS g
+           FROM bewertungsschema bs JOIN fach fa ON fa.id = bs.fach_id
+           JOIN bildungsgang b ON b.id = bs.bildungsgang_id
+          WHERE fa.schluessel = ? AND b.schluessel = ? AND bs.halbjahr = ?`,
+      )
+      .get(fachSchluessel, bg.schluessel, halbjahr) as
+      | { f: string | null; h: number | null; g: number | null }
+      | undefined;
+    if (ref?.f && ref.h) {
+      externFach = ref.f;
+      externHalbjahr = ref.h;
+      const fname =
+        (db.prepare('SELECT name FROM fach WHERE schluessel = ?').get(ref.f) as
+          | { name: string }
+          | undefined)?.name ?? ref.f;
+      label = `${fname} ${ref.h}. Hj. — fließt zu ${Math.round((ref.g ?? 0.3) * 100)} % ein`;
+    }
+  }
+
+  if (label === null) return leer;
+
+  const schueler = db
+    .prepare('SELECT id FROM schueler WHERE klasse_id = ? AND aktiv = 1 ORDER BY name, vorname')
+    .all(klasseId) as { id: number }[];
+
+  const werte: VorwertZeile[] = schueler.map((s) => {
+    const fach = externFach ?? fachSchluessel;
+    const hj = externFach ? externHalbjahr : quellHalbjahr;
+    const erg = berechneFachFuerSchueler(db, s.id, fach);
+    const zelle = erg.find((e) => e.halbjahr === hj);
+    return { schuelerId: s.id, endpunkte: zelle?.endpunkte ?? null, tendenz: zelle?.tendenz ?? null };
+  });
+  return { label, werte };
+}
+
 /**
  * Zeugnisansicht einer Klasse für ein Halbjahr: je Schüler:in für jedes (in
  * diesem Halbjahr aktive) Fach die berechnete Endnote + Tendenz. Rechnet live
