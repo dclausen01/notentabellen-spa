@@ -19,6 +19,8 @@ export interface MaskeZeile {
   direkt: MaskeWert | null;
   /** Nur bei WPK: belegter Kurs (id) oder null. */
   wpkKursId?: number | null;
+  /** Nur wenn das Schema eine Prüfung vorsieht (4. Hj.): Prüfungsnote. */
+  pruefung?: MaskeWert;
 }
 export interface WpkKursOption {
   id: number;
@@ -35,6 +37,8 @@ export interface Eingabemaske {
   zeilen: MaskeZeile[];
   /** Nur bei WPK gesetzt: wählbare Kurse für die Kurs-Spalte. */
   wpkKurse?: WpkKursOption[];
+  /** true, wenn in diesem Halbjahr eine Prüfungsnote erfasst wird (4. Hj.). */
+  pruefung?: boolean;
 }
 
 /**
@@ -49,7 +53,7 @@ export function baueEingabemaske(
 ): Eingabemaske {
   const schema = db
     .prepare(
-      `SELECT bs.id, bs.halbjahr_modus, bs.aktiv, bs.deaktivierbar, bs.fach_id
+      `SELECT bs.id, bs.halbjahr_modus, bs.aktiv, bs.deaktivierbar, bs.fach_id, bs.pruefung
          FROM bewertungsschema bs
          JOIN fach f ON f.id = bs.fach_id
         WHERE f.schluessel = ? AND bs.halbjahr = ?
@@ -62,6 +66,7 @@ export function baueEingabemaske(
         aktiv: number;
         deaktivierbar: number;
         fach_id: number;
+        pruefung: number;
       }
     | undefined;
 
@@ -107,6 +112,12 @@ export function baueEingabemaske(
     'SELECT wpk_kurs_id FROM wpk_eingabe WHERE schueler_id = ? AND halbjahr = ?',
   );
 
+  // Prüfungsnote (4. Hj. für LF2/LF3/Deutsch/Englisch/Mathe).
+  const hatPruefung = schema.pruefung === 1;
+  const pruefStmt = db.prepare(
+    'SELECT wert, ist_na FROM pruefungsnote WHERE schueler_id = ? AND fach_id = ? AND halbjahr = ?',
+  );
+
   const zeilen: MaskeZeile[] = schueler.map((s) => {
     const komponentenWerte: Record<string, MaskeWert> = {};
     let direkt: MaskeWert | null = null;
@@ -142,6 +153,15 @@ export function baueEingabemaske(
       const row = wpkKursStmt.get(s.id, halbjahr) as { wpk_kurs_id: number } | undefined;
       zeile.wpkKursId = row?.wpk_kurs_id ?? null;
     }
+    if (hatPruefung) {
+      const row = pruefStmt.get(s.id, schema.fach_id, halbjahr) as
+        | { wert: number | null; ist_na: number }
+        | undefined;
+      zeile.pruefung = {
+        wert: row?.ist_na ? null : (row?.wert ?? null),
+        istNa: row?.ist_na === 1,
+      };
+    }
     return zeile;
   });
 
@@ -155,5 +175,6 @@ export function baueEingabemaske(
     komponenten,
     zeilen,
     ...(istWpk ? { wpkKurse } : {}),
+    ...(hatPruefung ? { pruefung: true } : {}),
   };
 }

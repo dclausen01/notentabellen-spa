@@ -125,6 +125,13 @@ export function EingabePage() {
     aktualisiereZelle(schuelerId, (z) => ({ ...z, wpkKursId }));
   }
 
+  async function speicherePruefung(schuelerId: number, neu: MaskeWert) {
+    if (!fach || halbjahr == null) return;
+    await api.speicherePruefung({ schuelerId, fach, halbjahr, wert: neu.wert, istNa: neu.istNa });
+    aktualisiereZelle(schuelerId, (z) => ({ ...z, pruefung: neu }));
+    void ladeVorschau(schuelerId, fach, halbjahr);
+  }
+
   function aktualisiereZelle(schuelerId: number, fn: (z: Eingabemaske['zeilen'][number]) => Eingabemaske['zeilen'][number]) {
     setMaske((m) =>
       m ? { ...m, zeilen: m.zeilen.map((z) => (z.schuelerId === schuelerId ? fn(z) : z)) } : m,
@@ -220,6 +227,7 @@ export function EingabePage() {
               {maske.modus === 'komponenten_gewichtet'
                 ? maske.komponenten.map((k) => <th key={k.id}>{k.name}</th>)
                 : <th>Note</th>}
+              {maske.pruefung && <th className="pruefung-spalte">Prüfung</th>}
               {maske.vorwerte && <th className="vorschau-spalte">Vorwert</th>}
               <th className="vorschau-spalte">Endnote (Vorschau)</th>
             </tr>
@@ -268,6 +276,17 @@ export function EingabePage() {
                     />
                   </td>
                 )}
+                {maske.pruefung && (
+                  <td className="pruefung-spalte">
+                    <NoteInput
+                      wert={z.pruefung ?? { wert: null, istNa: false }}
+                      naErlaubt
+                      navCol={maske.modus === 'komponenten_gewichtet' ? maske.komponenten.length : 1}
+                      navRow={zeileIdx}
+                      onSpeichern={(neu) => void speicherePruefung(z.schuelerId, neu)}
+                    />
+                  </td>
+                )}
                 {maske.vorwerte && (
                   <td className="vorschau-spalte">{vorwertText(maske.vorwerte, z.schuelerId)}</td>
                 )}
@@ -280,6 +299,7 @@ export function EingabePage() {
                   colSpan={
                     2 +
                     (maske.wpkKurse ? 1 : 0) +
+                    (maske.pruefung ? 1 : 0) +
                     (maske.vorwerte ? 1 : 0) +
                     (maske.modus === 'komponenten_gewichtet' ? maske.komponenten.length : 1)
                   }

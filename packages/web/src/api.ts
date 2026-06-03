@@ -121,6 +121,14 @@ export const api = {
     istNa: boolean;
   }) => apiFetch<void>('/api/noten/direkt', { method: 'PUT', body: JSON.stringify(body) }),
 
+  speicherePruefung: (body: {
+    schuelerId: number;
+    fach: string;
+    halbjahr: number;
+    wert: number | null;
+    istNa: boolean;
+  }) => apiFetch<void>('/api/noten/pruefung', { method: 'PUT', body: JSON.stringify(body) }),
+
   speichereWpkKurs: (body: { schuelerId: number; halbjahr: number; wpkKursId: number | null }) =>
     apiFetch<void>('/api/noten/wpk-kurs', { method: 'PUT', body: JSON.stringify(body) }),
 

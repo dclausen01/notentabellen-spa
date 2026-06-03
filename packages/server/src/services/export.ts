@@ -37,60 +37,81 @@ export async function zeugnisAlsXlsx(
   const info = klasseInfo(db, klasseId);
   const zeilen = zeugnisFuerKlasse(db, klasseId, halbjahr);
   const fachNamen = new Map(listeFaecher(db).map((f) => [f.schluessel, f.name]));
-  const faecher = zeilen[0]?.faecher.map((f) => f.fach) ?? [];
+
+  // Einheitliche Spaltenliste: erst Fächer, dann (im Abschlusszeugnis) der
+  // hervorgehobene Prüfungsblock.
+  type Spalte = { key: string; label: string; pruefung: boolean };
+  const fachSpalten: Spalte[] = (zeilen[0]?.faecher ?? []).map((f) => ({
+    key: f.fach,
+    label: f.label ?? fachNamen.get(f.fach) ?? f.fach,
+    pruefung: false,
+  }));
+  const pruefSpalten: Spalte[] = (zeilen[0]?.pruefungen ?? []).map((p) => ({
+    key: p.fach,
+    label: p.label ?? p.fach,
+    pruefung: true,
+  }));
+  const spalten = [...fachSpalten, ...pruefSpalten];
+  const zelleVon = (z: (typeof zeilen)[number], sp: Spalte) =>
+    (sp.pruefung ? z.pruefungen : z.faecher)?.find((c) => c.fach === sp.key);
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Notenverwaltung SPA';
   wb.created = new Date();
 
   const titel = `Zeugnis – ${info.bezeichnung} (${info.schuljahr}) – ${halbjahr}. Halbjahr`;
+  const pruefFill: ExcelJS.Fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFFFEDD5' },
+  };
 
   const baueBlatt = (
     name: string,
-    wert: (fach: string, zeile: (typeof zeilen)[number]) => string | number | null,
+    wert: (sp: Spalte, zeile: (typeof zeilen)[number]) => string | number | null,
   ): void => {
     const ws = wb.addWorksheet(name);
-    const spaltenZahl = 2 + faecher.length;
+    const spaltenZahl = 2 + spalten.length;
 
     ws.mergeCells(1, 1, 1, Math.max(1, spaltenZahl));
     const titelZelle = ws.getCell(1, 1);
     titelZelle.value = titel;
     titelZelle.font = { bold: true, size: 13 };
 
-    const kopf = ['Name', 'Vorname', ...faecher.map((f) => fachNamen.get(f) ?? f)];
+    const kopf = ['Name', 'Vorname', ...spalten.map((s) => s.label)];
     const kopfRow = ws.getRow(3);
     kopfRow.values = kopf;
     kopfRow.font = { bold: true };
     kopfRow.alignment = { horizontal: 'center' };
     kopfRow.getCell(1).alignment = { horizontal: 'left' };
     kopfRow.getCell(2).alignment = { horizontal: 'left' };
+    spalten.forEach((s, i) => {
+      if (s.pruefung) kopfRow.getCell(3 + i).fill = pruefFill;
+    });
 
     for (const z of zeilen) {
       const row = ws.addRow([
         z.name,
         z.vorname,
-        ...faecher.map((f) => {
-          const zelle = z.faecher.find((c) => c.fach === f);
-          return zelle ? wert(f, z) : null;
-        }),
+        ...spalten.map((s) => (zelleVon(z, s) ? wert(s, z) : null)),
       ]);
       row.alignment = { horizontal: 'center' };
       row.getCell(1).alignment = { horizontal: 'left' };
       row.getCell(2).alignment = { horizontal: 'left' };
+      spalten.forEach((s, i) => {
+        if (s.pruefung) row.getCell(3 + i).fill = pruefFill;
+      });
     }
 
     ws.getColumn(1).width = 18;
     ws.getColumn(2).width = 16;
-    for (let i = 0; i < faecher.length; i++) ws.getColumn(3 + i).width = 14;
+    for (let i = 0; i < spalten.length; i++) ws.getColumn(3 + i).width = 14;
     ws.views = [{ state: 'frozen', xSplit: 2, ySplit: 3 }];
   };
 
-  baueBlatt('Tendenznoten', (fach, z) => {
-    const zelle = z.faecher.find((c) => c.fach === fach);
-    return zelle?.tendenz ?? '–';
-  });
-  baueBlatt('Endpunkte', (fach, z) => {
-    const zelle = z.faecher.find((c) => c.fach === fach);
+  baueBlatt('Tendenznoten', (sp, z) => zelleVon(z, sp)?.tendenz ?? '–');
+  baueBlatt('Endpunkte', (sp, z) => {
+    const zelle = zelleVon(z, sp);
     return zelle?.endpunkte != null ? Number(zelle.endpunkte.toFixed(2)) : null;
   });
 

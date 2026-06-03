@@ -58,6 +58,32 @@ export function speichereKomponentennote(db: DB, n: KomponentennoteInput): void 
   tx();
 }
 
+/** Speichert/aktualisiert eine Prüfungsnote (Upsert) und protokolliert die Änderung. */
+export function speicherePruefungsnote(db: DB, n: DirektnoteInput): void {
+  const ts = new Date().toISOString();
+  const stmt = db.prepare(
+    `INSERT INTO pruefungsnote
+       (schueler_id, fach_id, halbjahr, wert, ist_na, geaendert_von, geaendert_am)
+     VALUES (@schuelerId, @fachId, @halbjahr, @wert, @istNa, @geaendertVon, @ts)
+     ON CONFLICT(schueler_id, fach_id, halbjahr) DO UPDATE SET
+       wert = excluded.wert, ist_na = excluded.ist_na,
+       geaendert_von = excluded.geaendert_von, geaendert_am = excluded.geaendert_am`,
+  );
+  const tx = db.transaction(() => {
+    stmt.run({
+      schuelerId: n.schuelerId,
+      fachId: n.fachId,
+      halbjahr: n.halbjahr,
+      wert: n.istNa ? null : n.wert,
+      istNa: n.istNa ? 1 : 0,
+      geaendertVon: n.geaendertVon ?? null,
+      ts,
+    });
+    audit(db, n.geaendertVon, 'pruefungsnote_set', 'pruefungsnote', n.fachId, n);
+  });
+  tx();
+}
+
 /** Speichert/aktualisiert eine direkte Fachnote (Upsert) und protokolliert die Änderung. */
 export function speichereDirektnote(db: DB, n: DirektnoteInput): void {
   const ts = new Date().toISOString();

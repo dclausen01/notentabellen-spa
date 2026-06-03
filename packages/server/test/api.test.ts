@@ -242,7 +242,12 @@ describe('Praxis PiA: nur 2.+4. Hj., 4. Hj. = 0,7·Praxis(4.) + 0,3·Blockpraxis
     expect(await f(2)).toContain('PRAXIS');
     expect(await f(3)).not.toContain('PRAXIS');
     expect(await f(3)).toContain('BLOCKPRAXIS'); // eigene Zeile im 3. Hj.
-    expect(await f(4)).toContain('PRAXIS');
+    // 4. Hj. = Abschlusszeugnis: alle Fächer mit Endnote-Positionen (Praxis 2.+4. Hj.).
+    const hj4 = await f(4);
+    expect(hj4).toContain('PRAXIS:2');
+    expect(hj4).toContain('PRAXIS:4');
+    expect(hj4).toContain('BLOCKPRAXIS:3');
+    expect(hj4).toContain('WPK:2');
   });
 
   it('verrechnet Praxis(4.)=15 mit Blockpraxis(3.)=10 zu 13,5', async () => {
@@ -266,3 +271,71 @@ describe('Praxis PiA: nur 2.+4. Hj., 4. Hj. = 0,7·Praxis(4.) + 0,3·Blockpraxis
     expect(praxis.find((e: any) => e.halbjahr === 2).endpunkte).toBe(8);
   });
 });
+
+describe('Prüfungsnoten (4. Hj.)', () => {
+  it('Englisch-FHR: Endnote = 0,6·Vornote + 0,4·Prüfung; ohne Prüfung nur Vornote', async () => {
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: schueler, fach: 'ENGLISCH', halbjahr: 4, wert: 10, istNa: false,
+    });
+    const ohne = (await json('GET', `/api/schueler/${schueler}/fach/ENGLISCH`, adminToken)).body;
+    expect(ohne.find((e: any) => e.halbjahr === 4).endpunkte).toBe(10);
+
+    const r = await json('PUT', '/api/noten/pruefung', adminToken, {
+      schuelerId: schueler, fach: 'ENGLISCH', halbjahr: 4, wert: 5, istNa: false,
+    });
+    expect(r.status).toBe(204);
+    const mit = (await json('GET', `/api/schueler/${schueler}/fach/ENGLISCH`, adminToken)).body;
+    expect(mit.find((e: any) => e.halbjahr === 4).endpunkte).toBeCloseTo(8, 6);
+  });
+
+  it('LF2-Prüfung wird gespeichert/angezeigt, ändert aber die LF2-Endnote nicht', async () => {
+    await json('PUT', '/api/noten/komponente', adminToken, {
+      schuelerId: schueler,
+      komponenteId: lf2KompId('gesundheit', 4, piaKlasse),
+      halbjahr: 4, wert: 12, istNa: false,
+    });
+    const vorher = (await json('GET', `/api/schueler/${schueler}/fach/LF2`, adminToken)).body
+      .find((e: any) => e.halbjahr === 4).endpunkte;
+    await json('PUT', '/api/noten/pruefung', adminToken, {
+      schuelerId: schueler, fach: 'LF2', halbjahr: 4, wert: 3, istNa: false,
+    });
+    const nachher = (await json('GET', `/api/schueler/${schueler}/fach/LF2`, adminToken)).body
+      .find((e: any) => e.halbjahr === 4).endpunkte;
+    expect(nachher).toBe(vorher);
+
+    // Prüfungsblock im Abschlusszeugnis
+    const z = (await json('GET', `/api/zeugnis?klasseId=${piaKlasse}&halbjahr=4`, adminToken)).body[0];
+    const labels = z.pruefungen.map((p: any) => p.label);
+    expect(labels).toContain('Lernfeld 2 (Prüfung)');
+    expect(labels).toContain('Englisch-FHR');
+    const lf2Pr = z.pruefungen.find((p: any) => p.label === 'Lernfeld 2 (Prüfung)');
+    expect(lf2Pr.endpunkte).toBe(3);
+  });
+
+  it('Prüfung ist nur erlaubt, wo das Schema sie vorsieht (z. B. nicht WiPo)', async () => {
+    const r = await json('PUT', '/api/noten/pruefung', adminToken, {
+      schuelerId: schueler, fach: 'WIPO', halbjahr: 4, wert: 5, istNa: false,
+    });
+    expect(r.status).toBe(400);
+  });
+
+  // Maske im 4. Hj. trägt die Prüfungsspalte
+  it('Eingabemaske LF3 4. Hj. signalisiert eine Prüfungsspalte', async () => {
+    const m = (await json('GET', `/api/eingabe?klasseId=${piaKlasse}&fach=LF3&halbjahr=4`, adminToken)).body;
+    expect(m.pruefung).toBe(true);
+  });
+});
+
+function lf2KompId(schluessel: string, halbjahr: number, klasseId: number): number {
+  return (
+    db
+      .prepare(
+        `SELECT k.id FROM komponente k
+           JOIN bewertungsschema bs ON bs.id = k.schema_id
+           JOIN fach f ON f.id = bs.fach_id
+          WHERE f.schluessel = 'LF2' AND k.schluessel = ? AND bs.halbjahr = ?
+            AND bs.bildungsgang_id = (SELECT bildungsgang_id FROM klasse WHERE id = ?)`,
+      )
+      .get(schluessel, halbjahr, klasseId) as { id: number }
+  ).id;
+}

@@ -49,10 +49,12 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
       `INSERT INTO bewertungsschema
          (fach_id, bildungsgang_id, halbjahr, halbjahr_modus, kumulation_modus,
           deaktivierbar, aktiv, mittelwert_halbjahre,
-          gewicht_aktuell, gewicht_extern, extern_fach, extern_halbjahr)
+          gewicht_aktuell, gewicht_extern, extern_fach, extern_halbjahr,
+          pruefung, pruefung_verrechnen, abschluss_zeigen)
        VALUES (@fachId, @bgId, @halbjahr, @halbjahrModus, @kumulationModus,
                @deaktivierbar, @aktiv, @mittelwert,
-               @gewichtAktuell, @gewichtExtern, @externFach, @externHalbjahr)
+               @gewichtAktuell, @gewichtExtern, @externFach, @externHalbjahr,
+               @pruefung, @pruefungVerrechnen, @abschlussZeigen)
        ON CONFLICT(fach_id, bildungsgang_id, halbjahr) DO UPDATE SET
          halbjahr_modus = excluded.halbjahr_modus,
          kumulation_modus = excluded.kumulation_modus,
@@ -62,7 +64,10 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
          gewicht_aktuell = excluded.gewicht_aktuell,
          gewicht_extern = excluded.gewicht_extern,
          extern_fach = excluded.extern_fach,
-         extern_halbjahr = excluded.extern_halbjahr`,
+         extern_halbjahr = excluded.extern_halbjahr,
+         pruefung = excluded.pruefung,
+         pruefung_verrechnen = excluded.pruefung_verrechnen,
+         abschluss_zeigen = excluded.abschluss_zeigen`,
     );
     const schemaId = db.prepare(
       'SELECT id FROM bewertungsschema WHERE fach_id = ? AND bildungsgang_id = ? AND halbjahr = ?',
@@ -98,6 +103,9 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
         gewichtExtern: s.gewichtExtern ?? null,
         externFach: s.externFach ?? null,
         externHalbjahr: s.externHalbjahr ?? null,
+        pruefung: s.pruefung ? 1 : 0,
+        pruefungVerrechnen: s.pruefungVerrechnen ? 1 : 0,
+        abschlussZeigen: s.abschlussZeigen ? 1 : 0,
       });
       const sid = (schemaId.get(fid, bid, s.halbjahr) as { id: number }).id;
       s.komponenten.forEach((k, i) => {

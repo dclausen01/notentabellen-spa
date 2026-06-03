@@ -17,7 +17,11 @@ import {
   istRestKomponente,
   setzeKomponenteAktiv,
 } from '../db/komponenten.js';
-import { speichereDirektnote, speichereKomponentennote } from '../db/noten.js';
+import {
+  speichereDirektnote,
+  speichereKomponentennote,
+  speicherePruefungsnote,
+} from '../db/noten.js';
 import {
   erstelleKlasse,
   erstelleLehrauftrag,
@@ -314,6 +318,55 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
       return reply.code(404).send({ fehler: (e as Error).message });
     }
     speichereDirektnote(db, {
+      schuelerId: b.schuelerId,
+      fachId: fId,
+      halbjahr: b.halbjahr,
+      wert: b.wert ?? null,
+      istNa: b.istNa ?? false,
+      geaendertVon: id.lehrkraftId,
+    });
+    return reply.code(204).send();
+  });
+
+  // Prüfungsnote (4. Hj.) speichern — nur wo das Schema eine Prüfung vorsieht.
+  app.put('/api/noten/pruefung', async (req, reply) => {
+    const b = req.body as Partial<{
+      schuelerId: number;
+      fach: string;
+      halbjahr: number;
+      wert: number | null;
+      istNa: boolean;
+    }>;
+    if (b.schuelerId === undefined || !b.fach || b.halbjahr === undefined) {
+      return reply.code(400).send({ fehler: 'schuelerId, fach, halbjahr erforderlich' });
+    }
+    if (!b.istNa && b.wert != null && (b.wert < 0 || b.wert > 15)) {
+      return reply.code(400).send({ fehler: 'Wert muss zwischen 0 und 15 liegen' });
+    }
+    const klasseId = klasseVonSchueler(db, b.schuelerId);
+    if (klasseId === undefined) return reply.code(404).send({ fehler: 'Schüler nicht gefunden' });
+    const id = ident(req);
+    if (id.rolle !== 'admin' && !hatLehrauftrag(db, id.lehrkraftId, b.fach, klasseId, b.halbjahr)) {
+      return verboten(reply);
+    }
+    let fId: number;
+    try {
+      fId = fachId(db, b.fach);
+    } catch (e) {
+      return reply.code(404).send({ fehler: (e as Error).message });
+    }
+    // Nur erlaubt, wo das Schema eine Prüfung vorsieht.
+    const erlaubt = db
+      .prepare(
+        `SELECT 1 FROM bewertungsschema
+          WHERE fach_id = ? AND halbjahr = ? AND pruefung = 1
+            AND bildungsgang_id = (SELECT bildungsgang_id FROM klasse WHERE id = ?)`,
+      )
+      .get(fId, b.halbjahr, klasseId);
+    if (!erlaubt) {
+      return reply.code(400).send({ fehler: 'Für dieses Fach/Halbjahr ist keine Prüfung vorgesehen' });
+    }
+    speicherePruefungsnote(db, {
       schuelerId: b.schuelerId,
       fachId: fId,
       halbjahr: b.halbjahr,

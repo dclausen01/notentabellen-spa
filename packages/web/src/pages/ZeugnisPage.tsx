@@ -61,7 +61,8 @@ export function ZeugnisPage() {
     }
   }
 
-  const faecher = zeilen[0]?.faecher.map((f) => f.fach) ?? [];
+  const faecher = zeilen[0]?.faecher ?? [];
+  const pruefungen = zeilen[0]?.pruefungen ?? [];
 
   return (
     <div className="page">
@@ -108,9 +109,26 @@ export function ZeugnisPage() {
         <div className="tabelle-scroll">
           <table className="tabelle zeugnis">
             <thead>
+              {pruefungen.length > 0 && (
+                <tr>
+                  <th aria-hidden />
+                  <th aria-hidden colSpan={faecher.length} />
+                  <th className="pruefung-spalte pruefung-gruppe" colSpan={pruefungen.length}>
+                    Prüfungen
+                  </th>
+                </tr>
+              )}
               <tr>
                 <th>Name, Vorname</th>
-                {faecher.map((f) => <th key={f}>{f}</th>)}
+                {faecher.map((f) => <th key={f.fach}>{f.label ?? f.fach}</th>)}
+                {pruefungen.map((p, i) => (
+                  <th
+                    key={p.fach}
+                    className={`pruefung-spalte${i === 0 ? ' pruefung-start' : ''}`}
+                  >
+                    {p.label ?? p.fach}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -120,6 +138,15 @@ export function ZeugnisPage() {
                   {z.faecher.map((f) => (
                     <td key={f.fach} title={f.endpunkte != null ? `${f.endpunkte.toFixed(2)} Punkte` : ''}>
                       {f.tendenz ?? '–'}
+                    </td>
+                  ))}
+                  {(z.pruefungen ?? []).map((p, i) => (
+                    <td
+                      key={p.fach}
+                      className={`pruefung-spalte${i === 0 ? ' pruefung-start' : ''}`}
+                      title={p.endpunkte != null ? `${p.endpunkte.toFixed(2)} Punkte` : ''}
+                    >
+                      {p.tendenz ?? '–'}
                     </td>
                   ))}
                 </tr>
