@@ -29,6 +29,12 @@ export interface SchemaCfg {
   gewichtExtern?: number;
   externFach?: string;
   externHalbjahr?: Halbjahr;
+  /** Im 4. Hj. wird eine Prüfungsnote erfasst (Eingabespalte + Anzeige). */
+  pruefung?: boolean;
+  /** Prüfung fließt in die Endnote ein (Englisch/Mathe FHR, über die Gewichte). */
+  pruefungVerrechnen?: boolean;
+  /** Diese (Fach,Halbjahr)-Position erscheint im Abschlusszeugnis (4. Hj.). */
+  abschlussZeigen?: boolean;
 }
 
 export type BildungsgangSchluessel = 'SPA_REGULAR' | 'SPA_PIA';
@@ -96,6 +102,7 @@ function lernfeldSchemata(): SchemaCfg[] {
   const out: SchemaCfg[] = [];
   for (const bg of BEIDE) {
     for (const hj of ALLE_HJ) {
+      const istVierte = hj === 4;
       // LF1: direkter Punktwert, 50/50-Kumulation
       out.push({
         fach: 'LF1',
@@ -106,8 +113,9 @@ function lernfeldSchemata(): SchemaCfg[] {
         deaktivierbar: false,
         aktiv: true,
         komponenten: [],
+        ...(istVierte ? { abschlussZeigen: true } : {}),
       });
-      // LF2: gewichtet, 50/50
+      // LF2: gewichtet, 50/50. Prüfung im 4. Hj. (eigenständig).
       out.push({
         fach: 'LF2',
         bildungsgang: bg,
@@ -117,8 +125,9 @@ function lernfeldSchemata(): SchemaCfg[] {
         deaktivierbar: false,
         aktiv: true,
         komponenten: LF2_KOMPONENTEN,
+        ...(istVierte ? { abschlussZeigen: true, pruefung: true } : {}),
       });
-      // LF3: gewichtet mit wechselnden Komponenten, 50/50
+      // LF3: gewichtet mit wechselnden Komponenten, 50/50. Prüfung im 4. Hj.
       out.push({
         fach: 'LF3',
         bildungsgang: bg,
@@ -128,6 +137,7 @@ function lernfeldSchemata(): SchemaCfg[] {
         deaktivierbar: false,
         aktiv: true,
         komponenten: lf3Komponenten(hj),
+        ...(istVierte ? { abschlussZeigen: true, pruefung: true } : {}),
       });
       // LF4: direkt, 50/50. PiA per Hj abschaltbar, regulär durchgängig.
       out.push({
@@ -139,6 +149,7 @@ function lernfeldSchemata(): SchemaCfg[] {
         deaktivierbar: bg === 'SPA_PIA',
         aktiv: true,
         komponenten: [],
+        ...(istVierte ? { abschlussZeigen: true } : {}),
       });
     }
   }
@@ -147,19 +158,30 @@ function lernfeldSchemata(): SchemaCfg[] {
 
 function allgemeineFaecherSchemata(): SchemaCfg[] {
   const faecher = ['DEUTSCH', 'ENGLISCH', 'WIPO', 'RELIGION', 'MATHEMATIK'];
+  // Fächer mit (verrechneter) FHR-Prüfung im 4. Hj.: Abschluss = 3/5·Vornote + 2/5·Prüfung.
+  const fhrFach = (f: string) => f === 'ENGLISCH' || f === 'MATHEMATIK';
   const out: SchemaCfg[] = [];
   for (const bg of BEIDE) {
     for (const fach of faecher) {
       for (const hj of ALLE_HJ) {
+        const istVierte = hj === 4;
+        const fhr = istVierte && fhrFach(fach);
         out.push({
           fach,
           bildungsgang: bg,
           halbjahr: hj,
           halbjahrModus: 'direkt',
-          kumulationModus: 'keine',
+          // Englisch/Mathe 4. Hj.: Prüfung fließt zu 2/5 ein (externer Modus).
+          kumulationModus: fhr ? 'gewichtet_vorgaenger' : 'keine',
           deaktivierbar: false,
           aktiv: true,
           komponenten: [],
+          ...(istVierte ? { abschlussZeigen: true } : {}),
+          // Prüfung erfassen: Deutsch (eigenständig) sowie Englisch/Mathe (verrechnet).
+          ...(istVierte && (fach === 'DEUTSCH' || fhr) ? { pruefung: true } : {}),
+          ...(fhr
+            ? { pruefungVerrechnen: true, gewichtAktuell: 0.6, gewichtExtern: 0.4 }
+            : {}),
         });
       }
     }
@@ -183,6 +205,8 @@ function praxisSchemata(): SchemaCfg[] {
       deaktivierbar: false,
       aktiv: hj === 2 || hj === 4,
       komponenten: [],
+      // Beide Praxisnoten (2. + 4. Hj.) im Abschlusszeugnis ausweisen.
+      ...(hj === 2 || hj === 4 ? { abschlussZeigen: true } : {}),
       ...(istVierte
         ? {
             gewichtAktuell: 0.7,
@@ -203,11 +227,12 @@ function praxisSchemata(): SchemaCfg[] {
     kumulationModus: 'keine',
     deaktivierbar: false,
     aktiv: true,
+    abschlussZeigen: true,
     komponenten: [],
   });
 
   // Regulär: nur 2. und 3. Hj., zwei separate Noten ohne Verrechnung; kein
-  // Blockpraktikum.
+  // Blockpraktikum. Beide im Abschlusszeugnis ausweisen.
   for (const hj of ALLE_HJ) {
     out.push({
       fach: 'PRAXIS',
@@ -218,6 +243,7 @@ function praxisSchemata(): SchemaCfg[] {
       deaktivierbar: false,
       aktiv: hj === 2 || hj === 3,
       komponenten: [],
+      ...(hj === 2 || hj === 3 ? { abschlussZeigen: true } : {}),
     });
   }
   return out;
@@ -237,7 +263,7 @@ function wpkSchemata(): SchemaCfg[] {
         kumulationModus: hj === 2 ? 'mittelwert_halbjahre' : 'keine',
         deaktivierbar: false,
         aktiv,
-        ...(hj === 2 ? { mittelwertHalbjahre: [1, 2] as Halbjahr[] } : {}),
+        ...(hj === 2 ? { mittelwertHalbjahre: [1, 2] as Halbjahr[], abschlussZeigen: true } : {}),
         komponenten: [],
       });
     }

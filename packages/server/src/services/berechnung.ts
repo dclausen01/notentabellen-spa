@@ -1,4 +1,10 @@
-import { berechneFach, type EingabeHalbjahr, type ErgebnisHalbjahr } from '@notentabellen/core';
+import {
+  berechneFach,
+  STANDARD_NOTENSKALA,
+  tendenzAusEndpunkten,
+  type EingabeHalbjahr,
+  type ErgebnisHalbjahr,
+} from '@notentabellen/core';
 import type { DB } from '../db/connection.js';
 import { deaktivierteKomponenten } from '../db/komponenten.js';
 import { ladeSchema } from '../db/lade-schema.js';
@@ -82,6 +88,41 @@ function injiziereExterneWerte(
     const eingabe = eingaben.find((e) => e.halbjahr === ref.halbjahr);
     if (eingabe) eingabe.externerWert = wert;
   }
+
+  // Verrechnete Prüfungen (Englisch/Mathe FHR 4. Hj.): die Prüfungsnote des
+  // Fachs/Halbjahres fließt als externer Wert ein (0,6·Vornote + 0,4·Prüfung).
+  const pruefRefs = db
+    .prepare(
+      `SELECT bs.halbjahr FROM bewertungsschema bs
+         JOIN fach f ON f.id = bs.fach_id
+         JOIN bildungsgang bg ON bg.id = bs.bildungsgang_id
+        WHERE f.schluessel = ? AND bg.schluessel = ?
+          AND bs.aktiv = 1 AND bs.pruefung_verrechnen = 1`,
+    )
+    .all(fachSchluessel, bildungsgang) as Array<{ halbjahr: number }>;
+  if (pruefRefs.length > 0) {
+    const fId = fachId(db, fachSchluessel);
+    for (const ref of pruefRefs) {
+      const wert = ladePruefungsnote(db, schuelerId, fId, ref.halbjahr);
+      const eingabe = eingaben.find((e) => e.halbjahr === ref.halbjahr);
+      if (eingabe) eingabe.externerWert = wert;
+    }
+  }
+}
+
+/** Liest die (effektive) Prüfungsnote in Punkten oder null (n/a / fehlt). */
+function ladePruefungsnote(
+  db: DB,
+  schuelerId: number,
+  fId: number,
+  halbjahr: number,
+): number | null {
+  const row = db
+    .prepare(
+      'SELECT wert, ist_na FROM pruefungsnote WHERE schueler_id = ? AND fach_id = ? AND halbjahr = ?',
+    )
+    .get(schuelerId, fId, halbjahr) as { wert: number | null; ist_na: number } | undefined;
+  return row && !row.ist_na ? row.wert : null;
 }
 
 /** Persistiert berechnete Ergebnisse eines Fachs (Upsert je Halbjahr). */
@@ -157,7 +198,10 @@ export function berechneKlasse(db: DB, klasseId: number): number {
 }
 
 export interface ZeugnisZelle {
+  /** Eindeutiger Spalten-Key, z. B. "LF1" oder "PRAXIS:2". */
   fach: string;
+  /** Anzeige-Beschriftung (Default = Fachname). */
+  label?: string;
   endpunkte: number | null;
   tendenz: string | null;
 }
@@ -166,6 +210,8 @@ export interface ZeugnisZeile {
   name: string;
   vorname: string;
   faecher: ZeugnisZelle[];
+  /** Nur im Abschlusszeugnis (4. Hj.): hervorgehobener Prüfungsblock. */
+  pruefungen?: ZeugnisZelle[];
 }
 
 export interface VorwertZeile {
@@ -284,6 +330,14 @@ export function zeugnisFuerKlasse(
     .get(klasseId) as { schluessel: string } | undefined;
   if (!bg) throw new Error(`Klasse ${klasseId} nicht gefunden`);
 
+  const schueler = db
+    .prepare('SELECT id, name, vorname FROM schueler WHERE klasse_id = ? AND aktiv = 1 ORDER BY name, vorname')
+    .all(klasseId) as { id: number; name: string; vorname: string }[];
+
+  // 4. Hj. = Abschlusszeugnis (alle Fächer mit Endnote + Prüfungsblock).
+  if (halbjahr === 4) return abschlusszeugnis(db, bg.schluessel, schueler);
+
+  const namen = fachNamen(db);
   const faecher = (
     db
       .prepare(
@@ -296,10 +350,6 @@ export function zeugnisFuerKlasse(
       .all(bg.schluessel, halbjahr) as { schluessel: string }[]
   ).map((r) => r.schluessel);
 
-  const schueler = db
-    .prepare('SELECT id, name, vorname FROM schueler WHERE klasse_id = ? AND aktiv = 1 ORDER BY name, vorname')
-    .all(klasseId) as { id: number; name: string; vorname: string }[];
-
   return schueler.map((s) => ({
     schuelerId: s.id,
     name: s.name,
@@ -309,9 +359,87 @@ export function zeugnisFuerKlasse(
       const zelle = erg.find((e) => e.halbjahr === halbjahr);
       return {
         fach,
+        label: namen.get(fach) ?? fach,
         endpunkte: zelle?.endpunkte ?? null,
         tendenz: zelle?.tendenz ?? null,
       };
     }),
   }));
+}
+
+function fachNamen(db: DB): Map<string, string> {
+  return new Map(
+    (db.prepare('SELECT schluessel, name FROM fach').all() as { schluessel: string; name: string }[]).map(
+      (r) => [r.schluessel, r.name],
+    ),
+  );
+}
+
+/**
+ * Abschlusszeugnis (4. Hj.): pro Fach die finale Endnote an der/den konfigurierten
+ * Position(en) (`abschluss_zeigen`), inkl. früher abgeschlossener Fächer (WPK,
+ * Praxis, Blockpraxis). Zusätzlich der Prüfungsblock (`pruefung`).
+ */
+function abschlusszeugnis(
+  db: DB,
+  bildungsgang: string,
+  schueler: { id: number; name: string; vorname: string }[],
+): ZeugnisZeile[] {
+  const namen = fachNamen(db);
+
+  const positionen = db
+    .prepare(
+      `SELECT f.schluessel AS fach, bs.halbjahr AS halbjahr
+         FROM bewertungsschema bs JOIN fach f ON f.id = bs.fach_id
+         JOIN bildungsgang bg ON bg.id = bs.bildungsgang_id
+        WHERE bg.schluessel = ? AND bs.abschluss_zeigen = 1
+        ORDER BY f.id, bs.halbjahr`,
+    )
+    .all(bildungsgang) as { fach: string; halbjahr: number }[];
+  const anzahlProFach = new Map<string, number>();
+  for (const p of positionen) anzahlProFach.set(p.fach, (anzahlProFach.get(p.fach) ?? 0) + 1);
+  const posLabel = (p: { fach: string; halbjahr: number }) => {
+    const name = namen.get(p.fach) ?? p.fach;
+    return (anzahlProFach.get(p.fach) ?? 1) > 1 ? `${name} (${p.halbjahr}. Hj.)` : name;
+  };
+
+  const pruefPos = db
+    .prepare(
+      `SELECT f.schluessel AS fach, bs.halbjahr AS halbjahr
+         FROM bewertungsschema bs JOIN fach f ON f.id = bs.fach_id
+         JOIN bildungsgang bg ON bg.id = bs.bildungsgang_id
+        WHERE bg.schluessel = ? AND bs.pruefung = 1
+        ORDER BY f.id, bs.halbjahr`,
+    )
+    .all(bildungsgang) as { fach: string; halbjahr: number }[];
+  const pruefLabel = (fach: string) =>
+    fach === 'ENGLISCH' ? 'Englisch-FHR' : fach === 'MATHEMATIK' ? 'Mathe-FHR' : `${namen.get(fach) ?? fach} (Prüfung)`;
+
+  return schueler.map((s) => {
+    const cache = new Map<string, ErgebnisHalbjahr[]>();
+    const erg = (fach: string) => {
+      if (!cache.has(fach)) cache.set(fach, berechneFachFuerSchueler(db, s.id, fach));
+      return cache.get(fach)!;
+    };
+
+    const faecher: ZeugnisZelle[] = positionen.map((p) => {
+      const z = erg(p.fach).find((e) => e.halbjahr === p.halbjahr);
+      return {
+        fach: `${p.fach}:${p.halbjahr}`,
+        label: posLabel(p),
+        endpunkte: z?.endpunkte ?? null,
+        tendenz: z?.tendenz ?? null,
+      };
+    });
+    const pruefungen: ZeugnisZelle[] = pruefPos.map((p) => {
+      const wert = ladePruefungsnote(db, s.id, fachId(db, p.fach), p.halbjahr);
+      return {
+        fach: `PRUEF:${p.fach}:${p.halbjahr}`,
+        label: pruefLabel(p.fach),
+        endpunkte: wert,
+        tendenz: wert == null ? null : tendenzAusEndpunkten(wert, STANDARD_NOTENSKALA),
+      };
+    });
+    return { schuelerId: s.id, name: s.name, vorname: s.vorname, faecher, pruefungen };
+  });
 }

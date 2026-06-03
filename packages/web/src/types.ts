@@ -38,6 +38,7 @@ export interface MaskeZeile {
   komponenten: Record<string, MaskeWert>;
   direkt: MaskeWert | null;
   wpkKursId?: number | null;
+  pruefung?: MaskeWert;
 }
 
 export interface WpkKursOption {
@@ -65,6 +66,8 @@ export interface Eingabemaske {
   komponenten: MaskeKomponente[];
   zeilen: MaskeZeile[];
   wpkKurse?: WpkKursOption[];
+  /** true, wenn in diesem Halbjahr eine Prüfungsnote erfasst wird (4. Hj.). */
+  pruefung?: boolean;
   /** Zur Orientierung: Wert aus Vorhalbjahr/Quelle, der in die Endnote einfließt. */
   vorwerte?: VorwertInfo;
 }
@@ -79,6 +82,7 @@ export interface ErgebnisHalbjahr {
 
 export interface ZeugnisZelle {
   fach: string;
+  label?: string;
   endpunkte: number | null;
   tendenz: string | null;
 }
@@ -88,6 +92,8 @@ export interface ZeugnisZeile {
   name: string;
   vorname: string;
   faecher: ZeugnisZelle[];
+  /** Nur im Abschlusszeugnis (4. Hj.): hervorgehobener Prüfungsblock. */
+  pruefungen?: ZeugnisZelle[];
 }
 
 // --- Administration ---

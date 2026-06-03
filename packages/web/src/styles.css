@@ -125,6 +125,12 @@ input, select {
 .tabelle.zeugnis td:not(.name) { font-weight: 600; }
 .vorschau-spalte { color: var(--muted); font-variant-numeric: tabular-nums; }
 
+/* Prüfungsblock (4. Hj.) farblich hervorheben */
+.pruefung-spalte { background: #fff7ed; }
+.tabelle th.pruefung-spalte { background: #ffedd5; }
+.pruefung-start { border-left: 2px solid #fb923c; }
+.tabelle th.pruefung-gruppe { text-align: center; color: #9a3412; letter-spacing: 0.03em; }
+
 /* Administration */
 .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
 .tab {
