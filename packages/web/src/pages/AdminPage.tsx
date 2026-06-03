@@ -4,6 +4,7 @@ import type {
   AdminFach,
   AuftraegeAntwort,
   Bildungsgang,
+  ImportBericht,
   Klasse,
   Lehrkraft,
   Rolle,
@@ -16,6 +17,68 @@ type Bereich = 'stammdaten' | 'lehrkraefte' | 'wpk' | 'schemata';
 
 function fehlerText(e: unknown): string {
   return e instanceof ApiError ? e.message : 'Unerwarteter Fehler';
+}
+
+/** Wiederverwendbarer CSV-Import mit Ergebnisbericht. */
+function CsvImport({
+  titel,
+  hinweis,
+  importieren,
+  onFertig,
+}: {
+  titel: string;
+  hinweis: string;
+  importieren: (csv: string) => Promise<ImportBericht>;
+  onFertig: () => void;
+}) {
+  const [bericht, setBericht] = useState<ImportBericht | null>(null);
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [laeuft, setLaeuft] = useState(false);
+
+  async function datei(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = ''; // erneutes Wählen derselben Datei erlauben
+    if (!f) return;
+    setFehler(null);
+    setBericht(null);
+    setLaeuft(true);
+    try {
+      const text = await f.text();
+      setBericht(await importieren(text));
+      onFertig();
+    } catch (err) {
+      setFehler(fehlerText(err));
+    } finally {
+      setLaeuft(false);
+    }
+  }
+
+  return (
+    <section className="card span-2">
+      <h3>{titel}</h3>
+      <p className="muted hinweis">{hinweis}</p>
+      <input type="file" accept=".csv,text/csv" onChange={(e) => void datei(e)} disabled={laeuft} />
+      {laeuft && <p className="muted">Importiere …</p>}
+      {fehler && <p className="fehler" role="alert">{fehler}</p>}
+      {bericht && (
+        <div>
+          <p className="erfolg">
+            {bericht.angelegt} angelegt, {bericht.uebersprungen} übersprungen,{' '}
+            {bericht.fehler.length} Fehler.
+          </p>
+          {bericht.fehler.length > 0 && (
+            <ul className="chip-liste">
+              {bericht.fehler.slice(0, 30).map((f, i) => (
+                <li key={i} className="muted">
+                  Zeile {f.zeile}: {f.grund}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </section>
+  );
 }
 
 export function AdminPage() {
@@ -165,6 +228,13 @@ function StammdatenBereich() {
           </tbody>
         </table>
       </section>
+
+      <CsvImport
+        titel="Schüler:innen per CSV importieren"
+        hinweis="Spalten: vorname, nachname, klasse (Trennzeichen , oder ;). Die Klasse muss bereits angelegt sein. Bereits vorhandene Schüler:innen werden übersprungen."
+        importieren={adminApi.importSchueler}
+        onFertig={() => void ladeKlassen()}
+      />
 
       {aktiveKlasse != null && <SchuelerVerwaltung klasseId={aktiveKlasse} />}
     </div>
@@ -387,6 +457,13 @@ function LehrkraefteBereich() {
           </tbody>
         </table>
       </section>
+
+      <CsvImport
+        titel="Lehrkräfte per CSV importieren"
+        hinweis="Spalten: vorname, nachname, benutzername, klasse (optional). Mit Klasse → Klassenleitung dieser Klasse, sonst Fachlehrkraft. benutzername = AD-Login (sAMAccountName). Erneuter Import aktualisiert bestehende Konten."
+        importieren={adminApi.importLehrkraefte}
+        onFertig={() => void lade()}
+      />
 
       {aktiv != null && <ZugriffVerwaltung lehrkraftId={aktiv} />}
     </div>

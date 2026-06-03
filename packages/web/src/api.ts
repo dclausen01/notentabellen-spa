@@ -8,6 +8,7 @@ import type {
   Identitaet,
   Klasse,
   Lehrkraft,
+  ImportBericht,
   Rolle,
   Schueler,
   SchemaUebersichtZeile,
@@ -194,6 +195,18 @@ export const adminApi = {
     apiFetch<SchemaUebersichtZeile[]>(
       `/api/admin/schemata?bildungsgang=${encodeURIComponent(bildungsgang)}`,
     ),
+
+  importSchueler: (csv: string) =>
+    apiFetch<ImportBericht>('/api/admin/import/schueler', {
+      method: 'POST',
+      body: JSON.stringify({ csv }),
+    }),
+
+  importLehrkraefte: (csv: string) =>
+    apiFetch<ImportBericht>('/api/admin/import/lehrkraefte', {
+      method: 'POST',
+      body: JSON.stringify({ csv }),
+    }),
 
   wpkKurse: () => apiFetch<WpkKurs[]>('/api/admin/wpk-kurse'),
 

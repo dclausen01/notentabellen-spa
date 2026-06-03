@@ -341,6 +341,15 @@ Betriebs-/Deployment-/Backup-Dokumentation liegt in
 `seed-admin` sind vorhanden. **Migration entfällt** (Entscheidung: Neustart,
 s. §11.5). **Offen/optional:** PDF-Export — wird auf Wunsch ergänzt.
 
+**CSV-Import (M7):** Admin-Konsole importiert Stammdaten aus CSV (Komma oder
+Semikolon, BOM-tolerant):
+- **Schüler:innen:** Spalten `vorname, nachname, klasse` (Klasse muss existieren;
+  Duplikate werden übersprungen).
+- **Lehrkräfte:** Spalten `vorname, nachname, benutzername, klasse` (optional).
+  Mit Klasse → Klassenleitung, sonst Fachlehrkraft. `benutzername` =
+  AD-`sAMAccountName`. Upsert über die Login-Kennung (kein Duplikat bei
+  erneutem Import). Ergebnisbericht (angelegt / übersprungen / Fehler je Zeile).
+
 **Admin-UI (M6):** Administrationsbereich im Frontend (nur Rolle `admin`),
 serverseitig über `/api/admin/*` (eigener Admin-Hook) abgesichert. Funktionen:
 Klassen + Schüler:innen anlegen/deaktivieren, Lehrkräfte anlegen

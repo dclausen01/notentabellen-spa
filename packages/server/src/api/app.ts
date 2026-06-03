@@ -49,6 +49,7 @@ import {
 import { baueEingabemaske } from '../services/eingabemaske.js';
 import { faecherFuerKlasse } from '../services/faecher.js';
 import { exportDateiname, zeugnisAlsXlsx } from '../services/export.js';
+import { importiereLehrkraefte, importiereSchueler } from '../services/import.js';
 
 export interface AppOptions {
   db: DB;
@@ -533,6 +534,19 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
     }
     entferneKlassenleitung(db, lehrkraftId, klasseId);
     return reply.code(204).send();
+  });
+
+  // --- CSV-Import (Stammdaten) ---
+  app.post('/api/admin/import/schueler', async (req, reply) => {
+    const b = req.body as Partial<{ csv: string }>;
+    if (!b.csv || !b.csv.trim()) return reply.code(400).send({ fehler: 'csv erforderlich' });
+    return importiereSchueler(db, b.csv);
+  });
+
+  app.post('/api/admin/import/lehrkraefte', async (req, reply) => {
+    const b = req.body as Partial<{ csv: string }>;
+    if (!b.csv || !b.csv.trim()) return reply.code(400).send({ fehler: 'csv erforderlich' });
+    return importiereLehrkraefte(db, b.csv);
   });
 
   // --- Wahlpflichtkurse (WPK) verwalten ---

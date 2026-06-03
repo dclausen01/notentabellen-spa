@@ -140,6 +140,12 @@ export interface WpkKurs {
   aktiv: number;
 }
 
+export interface ImportBericht {
+  angelegt: number;
+  uebersprungen: number;
+  fehler: { zeile: number; grund: string }[];
+}
+
 export interface SchemaUebersichtZeile {
   fach: string;
   fachName: string;
