@@ -41,6 +41,15 @@ export interface SchemaHalbjahr {
   komponenten: KomponenteDef[];
   /** Nur für `mittelwert_halbjahre`: welche Halbjahre gemittelt werden. */
   mittelwertHalbjahre?: Halbjahr[];
+  /**
+   * Nur für `gewichtet_vorgaenger` im EXTERNEN Modus (Praxis PiA 4. Hj.):
+   * Gewicht des aktuellen Halbjahres bzw. des externen Bezugswertes
+   * (z. B. 0.7 / 0.3). Sind sie gesetzt, kombiniert der Kern die aktuelle
+   * Zwischennote mit `EingabeHalbjahr.externerWert` statt mit dem
+   * Vorgänger-Halbjahr desselben Fachs.
+   */
+  gewichtAktuell?: number;
+  gewichtExtern?: number;
 }
 
 /** Ein Notenwert: Punkte 0–15 oder `null` für „nicht belegt" (n/a). */
@@ -55,6 +64,12 @@ export interface EingabeHalbjahr {
   komponenten?: Record<string, Wert>;
   /** Direktwert bei `direkt`. */
   direktwert?: Wert;
+  /**
+   * Externer Bezugswert für `gewichtet_vorgaenger` im externen Modus — z. B. die
+   * Blockpraxis-Note (3. Hj.), die zu 30 % in die Praxis-Endnote (4. Hj.) der
+   * PiA einfließt. Wird vom Service aus einem anderen Fach befüllt.
+   */
+  externerWert?: Wert;
 }
 
 /** Berechnetes Ergebnis für ein Fach in einem Halbjahr. */

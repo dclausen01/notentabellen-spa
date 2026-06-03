@@ -131,18 +131,27 @@ describe('LF4: deaktivierbar, Fortschreibung über n/a-Halbjahre', () => {
   });
 });
 
-describe('Praxis-Endnote PiA (gewichtet_vorgaenger 0,3/0,7)', () => {
-  it('4. Hj. = 0,3·Praxis(3. Hj.) + 0,7·Praxis(4. Hj.)', () => {
-    const schema: SchemaHalbjahr[] = [
-      direkt(3, 'keine'),
-      direkt(4, 'gewichtet_vorgaenger'),
-    ];
+describe('Praxis-Endnote PiA (externer Modus): 0,7·Praxis(4.) + 0,3·Blockpraxis(3.)', () => {
+  const praxis4 = direkt(4, 'gewichtet_vorgaenger', { gewichtAktuell: 0.7, gewichtExtern: 0.3 });
+
+  it('verrechnet die aktuelle Praxisnote mit dem externen Blockpraxis-Wert', () => {
     const eingaben: EingabeHalbjahr[] = [
-      { halbjahr: 3, istNa: false, direktwert: 10 },
-      { halbjahr: 4, istNa: false, direktwert: 15 },
+      // Praxis 4. Hj. = 15, Blockpraxis 3. Hj. (extern) = 10 → 0,7·15 + 0,3·10 = 13,5
+      { halbjahr: 4, istNa: false, direktwert: 15, externerWert: 10 },
     ];
-    const r = berechneFach({ schema, eingaben });
-    expect(r.find((x) => x.halbjahr === 4)!.endpunkte).toBeCloseTo(13.5, 10);
+    const r = berechneFach({ schema: [praxis4], eingaben });
+    const hj4 = r.find((x) => x.halbjahr === 4)!;
+    expect(hj4.endpunkte).toBeCloseTo(13.5, 10);
+    // Zwischennote bleibt die rohe Praxisnote (für die Orientierung)
+    expect(hj4.zwischennote).toBe(15);
+  });
+
+  it('ohne externen Wert zählt nur die aktuelle Praxisnote (keine Herabskalierung)', () => {
+    const r = berechneFach({
+      schema: [praxis4],
+      eingaben: [{ halbjahr: 4, istNa: false, direktwert: 12, externerWert: null }],
+    });
+    expect(r.find((x) => x.halbjahr === 4)!.endpunkte).toBe(12);
   });
 });
 

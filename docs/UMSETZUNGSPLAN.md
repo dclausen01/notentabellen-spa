@@ -136,7 +136,7 @@ berechneFach(input: {
 | --- | --- |
 | `fortlaufend_50_50` | `End(1)=Zw(1)`; `End(Hj≥2)=0,5·End(Hj−1)+0,5·Zw(Hj)`. LF1–LF4. |
 | `keine` | `End(Hj)=Zw(Hj)` (Deutsch, Englisch, WiPo, Religion, Mathematik). |
-| `gewichtet_vorgaenger` | `End=0,3·Zw(Vor-Hj)+0,7·Zw(akt. Hj)` (Praxis-Endnote 4. Hj.). |
+| `gewichtet_vorgaenger` | **Externer Modus** (Praxis PiA 4. Hj.): `End=0,7·Zw(Praxis 4.)+0,3·Wert(Blockpraxis 3.)` — Verrechnung über ein anderes Fach (Quelle + Gewichte als Konfiguration am Schema). |
 | `mittelwert_halbjahre` | `End=Ø(ausgewählte Hj.)` (WPK = Ø 1.+2. Hj.). |
 
 **Deaktivierbar (`flag: deaktivierbar`, LF4):** Ist ein Halbjahr auf n/a
@@ -177,16 +177,23 @@ werden **rein über Konfiguration** abgebildet (Bildungsgang-abhängige
 | --- | --- | --- |
 | LF4 | durchgängig **oder** je Hj. per n/a abschaltbar (`deaktivierbar=true`) | **immer durchgängig** unterrichtet (`deaktivierbar=false`, in allen 4 Hj. aktiv) |
 | Blockpraktikum | ja — „Blockpraxis" im 3. Hj. als eigene Eingabe | **kein** Blockpraktikum (keine Blockpraxis-Komponente) |
-| Praxisnoten | mehrere Halbjahre; Praxis-Endnote 4. Hj. = 0,3·3.Hj + 0,7·4.Hj | **nur 2. und 3. Hj.**; beide Noten bleiben **separat** (keine Verrechnung) und werden beide im Abschlusszeugnis ausgewiesen |
+| Praxisnoten | **nur 2. und 4. Hj.**; 2. Hj. eigenständig, 4. Hj. = 0,7·Praxis(4.) + 0,3·Blockpraxis(3.). Blockpraxis (3. Hj.) ist eigene Zeugnisnote *und* Quelle der Verrechnung | **nur 2. und 3. Hj.**; beide Noten bleiben **separat** (keine Verrechnung) und werden beide im Abschlusszeugnis ausgewiesen |
 
 **Konsequenz für das Schema:** Ein `bewertungsschema` ist immer an
-`(fach, bildungsgang, halbjahr)` gebunden. So kann z. B. „Praxis" für PiA in
-1.–4. Hj. aktiv sein, für regulär nur in 2.–3. Hj. — ohne Code-Verzweigung.
+`(fach, bildungsgang, halbjahr)` gebunden. So kann „Praxis" für PiA nur im
+2. + 4. Hj. aktiv sein, für regulär nur im 2. + 3. Hj. — ohne Code-Verzweigung.
+Im 1. Hj. gibt es in **keinem** Bildungsgang eine Praxisnote.
+
+**Praxis PiA (geklärt):** Praxisnoten nur im 2. und 4. Hj. Das 2. Hj. ist
+eigenständig (`keine`). Das 4. Hj. wird **einmalig** verrechnet:
+`0,7·Praxis(4.) + 0,3·Blockpraxis(3.)` (`gewichtet_vorgaenger` im externen
+Modus; Quelle = Fach `BLOCKPRAXIS`, Hj. 3, als Schema-Konfiguration). Die
+Blockpraxisnote (3. Hj.) wird **zusätzlich** als eigene Zeugnisnote ausgewiesen.
 
 **Praxis regulär (geklärt):** Die beiden Praxisnoten (2. + 3. Hj.) werden
 **nicht** kumuliert oder verrechnet. Jede ist eine eigenständige Direktnote
 (`kumulation_modus = keine`) und wird im Abschlusszeugnis separat ausgewiesen.
-Die 0,3/0,7-Praxis-Endnote gilt ausschließlich für PiA.
+Kein Blockpraktikum in regulär.
 
 ---
 

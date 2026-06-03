@@ -1,4 +1,4 @@
-import { berechneFach, type ErgebnisHalbjahr } from '@notentabellen/core';
+import { berechneFach, type EingabeHalbjahr, type ErgebnisHalbjahr } from '@notentabellen/core';
 import type { DB } from '../db/connection.js';
 import { ladeSchema } from '../db/lade-schema.js';
 import {
@@ -21,7 +21,44 @@ export function berechneFachFuerSchueler(
   if (schema.length === 0) return [];
   const fId = fachId(db, fachSchluessel);
   const eingaben = ladeEingaben(db, schuelerId, fId, schema);
+  injiziereExterneWerte(db, schuelerId, fachSchluessel, bildungsgang, eingaben);
   return berechneFach({ schema, eingaben });
+}
+
+/**
+ * Befüllt `externerWert` der Eingaben, wenn ein Halbjahr seine Endnote aus
+ * einem ANDEREN Fach mitbezieht (Praxis PiA 4. Hj. ← Blockpraxis 3. Hj.). Die
+ * Quelle steht als Konfiguration am Bewertungsschema (extern_fach/-halbjahr).
+ */
+function injiziereExterneWerte(
+  db: DB,
+  schuelerId: number,
+  fachSchluessel: string,
+  bildungsgang: string,
+  eingaben: EingabeHalbjahr[],
+): void {
+  const refs = db
+    .prepare(
+      `SELECT bs.halbjahr, bs.extern_fach AS externFach, bs.extern_halbjahr AS externHalbjahr
+         FROM bewertungsschema bs
+         JOIN fach f ON f.id = bs.fach_id
+         JOIN bildungsgang bg ON bg.id = bs.bildungsgang_id
+        WHERE f.schluessel = ? AND bg.schluessel = ?
+          AND bs.aktiv = 1 AND bs.extern_fach IS NOT NULL`,
+    )
+    .all(fachSchluessel, bildungsgang) as Array<{
+    halbjahr: number;
+    externFach: string;
+    externHalbjahr: number;
+  }>;
+
+  for (const ref of refs) {
+    // Quellfach berechnen und dessen Endnote im Quell-Halbjahr übernehmen.
+    const quelle = berechneFachFuerSchueler(db, schuelerId, ref.externFach);
+    const wert = quelle.find((e) => e.halbjahr === ref.externHalbjahr)?.endpunkte ?? null;
+    const eingabe = eingaben.find((e) => e.halbjahr === ref.halbjahr);
+    if (eingabe) eingabe.externerWert = wert;
+  }
 }
 
 /** Persistiert berechnete Ergebnisse eines Fachs (Upsert je Halbjahr). */

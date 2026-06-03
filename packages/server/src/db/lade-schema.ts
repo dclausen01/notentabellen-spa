@@ -9,6 +9,8 @@ interface SchemaRow {
   deaktivierbar: number;
   aktiv: number;
   mittelwert_halbjahre: string | null;
+  gewicht_aktuell: number | null;
+  gewicht_extern: number | null;
 }
 
 interface KompRow {
@@ -61,6 +63,8 @@ export function ladeSchema(
               .map((s) => Number(s) as Halbjahr),
           }
         : {}),
+      ...(r.gewicht_aktuell !== null ? { gewichtAktuell: r.gewicht_aktuell } : {}),
+      ...(r.gewicht_extern !== null ? { gewichtExtern: r.gewicht_extern } : {}),
     };
   });
 }

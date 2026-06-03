@@ -111,11 +111,21 @@ export function berechneFach(input: FachBerechnungInput): ErgebnisHalbjahr[] {
         break;
 
       case 'gewichtet_vorgaenger': {
-        // 0,3·Zwischennote(Vor-Hj) + 0,7·Zwischennote(akt. Hj). Praxis-Endnote PiA.
-        const vorHj = letztesAktivesVorHalbjahr(input.schema, hj);
-        const vorZw = vorHj !== null ? (zwischen.get(vorHj) ?? null) : null;
-        endpunkte =
-          vorZw === null || zw === null ? zw : 0.3 * vorZw + 0.7 * zw;
+        if (s.gewichtAktuell !== undefined || s.gewichtExtern !== undefined) {
+          // Externer Modus: aktuelle Zwischennote mit einem Wert aus einem
+          // ANDEREN Fach kombinieren (Praxis PiA 4. Hj. = 0,7·Praxis(4.) +
+          // 0,3·Blockpraxis(3.)). Fehlt der externe Wert, zählt nur die
+          // aktuelle Note (keine künstliche Herabskalierung).
+          const gA = s.gewichtAktuell ?? 0.7;
+          const gE = s.gewichtExtern ?? 0.3;
+          const ext = eingabe?.externerWert ?? null;
+          endpunkte = zw === null ? null : ext === null ? zw : gA * zw + gE * ext;
+        } else {
+          // Klassischer Modus: Vorgänger-Halbjahr DESSELBEN Fachs.
+          const vorHj = letztesAktivesVorHalbjahr(input.schema, hj);
+          const vorZw = vorHj !== null ? (zwischen.get(vorHj) ?? null) : null;
+          endpunkte = vorZw === null || zw === null ? zw : 0.3 * vorZw + 0.7 * zw;
+        }
         break;
       }
 

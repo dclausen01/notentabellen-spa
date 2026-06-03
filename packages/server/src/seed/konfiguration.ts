@@ -24,6 +24,11 @@ export interface SchemaCfg {
   aktiv: boolean;
   mittelwertHalbjahre?: Halbjahr[];
   komponenten: KomponenteCfg[];
+  /** Externe Verrechnung (Praxis PiA 4. Hj.): Gewichte + Quellfach/-Halbjahr. */
+  gewichtAktuell?: number;
+  gewichtExtern?: number;
+  externFach?: string;
+  externHalbjahr?: Halbjahr;
 }
 
 export type BildungsgangSchluessel = 'SPA_REGULAR' | 'SPA_PIA';
@@ -165,20 +170,31 @@ function allgemeineFaecherSchemata(): SchemaCfg[] {
 function praxisSchemata(): SchemaCfg[] {
   const out: SchemaCfg[] = [];
 
-  // PiA: Praxis in allen 4 Hj.; 1.–3. eigenständig, 4. Hj. = 0,3·3. + 0,7·4.
+  // PiA: Praxisnoten NUR im 2. und 4. Hj. Das 2. Hj. ist eigenständig; das
+  // 4. Hj. wird einmalig verrechnet: 0,7·Praxis(4.) + 0,3·Blockpraxis(3.).
   for (const hj of ALLE_HJ) {
+    const istVierte = hj === 4;
     out.push({
       fach: 'PRAXIS',
       bildungsgang: 'SPA_PIA',
       halbjahr: hj,
       halbjahrModus: 'direkt',
-      kumulationModus: hj === 4 ? 'gewichtet_vorgaenger' : 'keine',
+      kumulationModus: istVierte ? 'gewichtet_vorgaenger' : 'keine',
       deaktivierbar: false,
-      aktiv: true,
+      aktiv: hj === 2 || hj === 4,
       komponenten: [],
+      ...(istVierte
+        ? {
+            gewichtAktuell: 0.7,
+            gewichtExtern: 0.3,
+            externFach: 'BLOCKPRAXIS',
+            externHalbjahr: 3 as Halbjahr,
+          }
+        : {}),
     });
   }
-  // PiA: Blockpraxis nur im 3. Hj., eigenständige Note.
+  // PiA: Blockpraxis nur im 3. Hj., eigenständige Note (eigene Zeugniszeile)
+  // und Quelle für die 30%-Verrechnung der Praxis-Endnote im 4. Hj.
   out.push({
     fach: 'BLOCKPRAXIS',
     bildungsgang: 'SPA_PIA',
@@ -190,7 +206,8 @@ function praxisSchemata(): SchemaCfg[] {
     komponenten: [],
   });
 
-  // Regulär: nur 2. und 3. Hj., zwei separate Noten ohne Verrechnung.
+  // Regulär: nur 2. und 3. Hj., zwei separate Noten ohne Verrechnung; kein
+  // Blockpraktikum.
   for (const hj of ALLE_HJ) {
     out.push({
       fach: 'PRAXIS',

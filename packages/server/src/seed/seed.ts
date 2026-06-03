@@ -48,15 +48,21 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
     const schemaUpsert = db.prepare(
       `INSERT INTO bewertungsschema
          (fach_id, bildungsgang_id, halbjahr, halbjahr_modus, kumulation_modus,
-          deaktivierbar, aktiv, mittelwert_halbjahre)
+          deaktivierbar, aktiv, mittelwert_halbjahre,
+          gewicht_aktuell, gewicht_extern, extern_fach, extern_halbjahr)
        VALUES (@fachId, @bgId, @halbjahr, @halbjahrModus, @kumulationModus,
-               @deaktivierbar, @aktiv, @mittelwert)
+               @deaktivierbar, @aktiv, @mittelwert,
+               @gewichtAktuell, @gewichtExtern, @externFach, @externHalbjahr)
        ON CONFLICT(fach_id, bildungsgang_id, halbjahr) DO UPDATE SET
          halbjahr_modus = excluded.halbjahr_modus,
          kumulation_modus = excluded.kumulation_modus,
          deaktivierbar = excluded.deaktivierbar,
          aktiv = excluded.aktiv,
-         mittelwert_halbjahre = excluded.mittelwert_halbjahre`,
+         mittelwert_halbjahre = excluded.mittelwert_halbjahre,
+         gewicht_aktuell = excluded.gewicht_aktuell,
+         gewicht_extern = excluded.gewicht_extern,
+         extern_fach = excluded.extern_fach,
+         extern_halbjahr = excluded.extern_halbjahr`,
     );
     const schemaId = db.prepare(
       'SELECT id FROM bewertungsschema WHERE fach_id = ? AND bildungsgang_id = ? AND halbjahr = ?',
@@ -82,6 +88,10 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
         deaktivierbar: s.deaktivierbar ? 1 : 0,
         aktiv: s.aktiv ? 1 : 0,
         mittelwert: s.mittelwertHalbjahre ? s.mittelwertHalbjahre.join(',') : null,
+        gewichtAktuell: s.gewichtAktuell ?? null,
+        gewichtExtern: s.gewichtExtern ?? null,
+        externFach: s.externFach ?? null,
+        externHalbjahr: s.externHalbjahr ?? null,
       });
       const sid = (schemaId.get(fid, bid, s.halbjahr) as { id: number }).id;
       kompDelete.run(sid);

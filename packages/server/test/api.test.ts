@@ -157,3 +157,37 @@ describe('Zeugnis respektiert Bildungsgang (reguläre Praxis nur 2.+3. Hj.)', ()
     expect(z2[0].faecher.map((f: any) => f.fach)).toContain('PRAXIS');
   });
 });
+
+describe('Praxis PiA: nur 2.+4. Hj., 4. Hj. = 0,7·Praxis(4.) + 0,3·Blockpraxis(3.)', () => {
+  it('Praxis ist in PiA im 1. und 3. Hj. nicht aktiv, in 2. und 4. schon', async () => {
+    const f = async (hj: number) =>
+      (await json('GET', `/api/zeugnis?klasseId=${piaKlasse}&halbjahr=${hj}`, adminToken)).body[0]
+        .faecher.map((x: any) => x.fach);
+    expect(await f(1)).not.toContain('PRAXIS');
+    expect(await f(2)).toContain('PRAXIS');
+    expect(await f(3)).not.toContain('PRAXIS');
+    expect(await f(3)).toContain('BLOCKPRAXIS'); // eigene Zeile im 3. Hj.
+    expect(await f(4)).toContain('PRAXIS');
+  });
+
+  it('verrechnet Praxis(4.)=15 mit Blockpraxis(3.)=10 zu 13,5', async () => {
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: schueler, fach: 'BLOCKPRAXIS', halbjahr: 3, wert: 10, istNa: false,
+    });
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: schueler, fach: 'PRAXIS', halbjahr: 4, wert: 15, istNa: false,
+    });
+    const praxis = (await json('GET', `/api/schueler/${schueler}/fach/PRAXIS`, adminToken)).body;
+    const hj4 = praxis.find((e: any) => e.halbjahr === 4);
+    expect(hj4.endpunkte).toBeCloseTo(13.5, 6);
+    expect(hj4.zwischennote).toBe(15); // rohe Praxisnote bleibt sichtbar
+  });
+
+  it('Praxis(2.) bleibt eigenständig (keine Verrechnung)', async () => {
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: schueler, fach: 'PRAXIS', halbjahr: 2, wert: 8, istNa: false,
+    });
+    const praxis = (await json('GET', `/api/schueler/${schueler}/fach/PRAXIS`, adminToken)).body;
+    expect(praxis.find((e: any) => e.halbjahr === 2).endpunkte).toBe(8);
+  });
+});
