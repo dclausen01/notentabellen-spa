@@ -293,6 +293,54 @@ describe('Zeugnis-Export (XLSX)', () => {
   });
 });
 
+describe('Wahlpflichtkurse (WPK)', () => {
+  it('seedet die Standardkurse und legt einen neuen an', async () => {
+    const r0 = await json('GET', '/api/admin/wpk-kurse', adminToken);
+    expect(r0.body.map((k: any) => k.name)).toEqual(
+      expect.arrayContaining(['Krippe (U3)', 'Nahrungsmittelzubereitung']),
+    );
+
+    const neu = await json('POST', '/api/admin/wpk-kurse', adminToken, { name: 'Tierpädagogik' });
+    expect(neu.status).toBe(201);
+    const r1 = await json('GET', '/api/admin/wpk-kurse', adminToken);
+    expect(r1.body.map((k: any) => k.name)).toContain('Tierpädagogik');
+  });
+
+  it('deaktiviert einen Kurs (verschwindet aus der Eingabe-Auswahl)', async () => {
+    const liste = await json('GET', '/api/admin/wpk-kurse', adminToken);
+    const k = liste.body.find((x: any) => x.name === 'Krippe (U3)');
+    const r = await json('PUT', `/api/admin/wpk-kurse/${k.id}`, adminToken, { aktiv: false });
+    expect(r.status).toBe(204);
+
+    const klasseId = erstelleKlasse(db, 'SPA PiA 1', '2025/26', 'SPA_PIA');
+    erstelleSchueler(db, 'A', 'B', klasseId);
+    const maske = (await json('GET', `/api/eingabe?klasseId=${klasseId}&fach=WPK&halbjahr=1`, adminToken)).body;
+    expect(maske.wpkKurse.map((x: any) => x.name)).not.toContain('Krippe (U3)');
+  });
+
+  it('speichert den belegten Kurs einer Schüler:in und liefert ihn in der Maske', async () => {
+    const klasseId = erstelleKlasse(db, 'SPA PiA 2', '2025/26', 'SPA_PIA');
+    const sId = erstelleSchueler(db, 'Muster', 'Maxi', klasseId);
+    const kurs = (await json('GET', '/api/admin/wpk-kurse', adminToken)).body.find(
+      (x: any) => x.name === 'Nahrungsmittelzubereitung',
+    );
+
+    const put = await json('PUT', '/api/noten/wpk-kurs', adminToken, {
+      schuelerId: sId, halbjahr: 1, wpkKursId: kurs.id,
+    });
+    expect(put.status).toBe(204);
+
+    const maske = (await json('GET', `/api/eingabe?klasseId=${klasseId}&fach=WPK&halbjahr=1`, adminToken)).body;
+    const zeile = maske.zeilen.find((z: any) => z.schuelerId === sId);
+    expect(zeile.wpkKursId).toBe(kurs.id);
+
+    // Entfernen (null) löscht die Zuordnung
+    await json('PUT', '/api/noten/wpk-kurs', adminToken, { schuelerId: sId, halbjahr: 1, wpkKursId: null });
+    const maske2 = (await json('GET', `/api/eingabe?klasseId=${klasseId}&fach=WPK&halbjahr=1`, adminToken)).body;
+    expect(maske2.zeilen.find((z: any) => z.schuelerId === sId).wpkKursId).toBeNull();
+  });
+});
+
 describe('Bewertungsschema-Übersicht', () => {
   it('liefert LF2 mit Komponenten und Gewichten', async () => {
     const r = await json('GET', '/api/admin/schemata?bildungsgang=SPA_PIA', adminToken);

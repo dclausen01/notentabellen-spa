@@ -143,6 +143,53 @@ export function deaktiviereSchueler(db: DB, id: number): void {
   db.prepare('UPDATE schueler SET aktiv = 0 WHERE id = ?').run(id);
 }
 
+export interface WpkKurs {
+  id: number;
+  name: string;
+  aktiv: number;
+}
+
+export function listeWpkKurse(db: DB, nurAktive = false): WpkKurs[] {
+  const sql = nurAktive
+    ? 'SELECT id, name, aktiv FROM wpk_kurs WHERE aktiv = 1 ORDER BY name'
+    : 'SELECT id, name, aktiv FROM wpk_kurs ORDER BY name';
+  return db.prepare(sql).all() as WpkKurs[];
+}
+
+export function erstelleWpkKurs(db: DB, name: string): number {
+  const info = db.prepare('INSERT INTO wpk_kurs (name) VALUES (?)').run(name);
+  return Number(info.lastInsertRowid);
+}
+
+export function setzeWpkKursAktiv(db: DB, id: number, aktiv: boolean): void {
+  db.prepare('UPDATE wpk_kurs SET aktiv = ? WHERE id = ?').run(aktiv ? 1 : 0, id);
+}
+
+/**
+ * Setzt (oder entfernt) den belegten WPK-Kurs einer Schüler:in für ein
+ * Halbjahr. `wpkKursId = null` löscht die Zuordnung. Die WPK-*Note* selbst wird
+ * weiterhin als Direktnote (fachnote_direkt) erfasst — hier geht es nur um den
+ * belegten Kurs.
+ */
+export function speichereWpkKurs(
+  db: DB,
+  schuelerId: number,
+  halbjahr: number,
+  wpkKursId: number | null,
+): void {
+  if (wpkKursId === null) {
+    db.prepare('DELETE FROM wpk_eingabe WHERE schueler_id = ? AND halbjahr = ?').run(
+      schuelerId,
+      halbjahr,
+    );
+    return;
+  }
+  db.prepare(
+    `INSERT INTO wpk_eingabe (schueler_id, halbjahr, wpk_kurs_id) VALUES (?, ?, ?)
+     ON CONFLICT(schueler_id, halbjahr) DO UPDATE SET wpk_kurs_id = excluded.wpk_kurs_id`,
+  ).run(schuelerId, halbjahr, wpkKursId);
+}
+
 export interface SchemaUebersichtKomponente {
   schluessel: string;
   name: string;

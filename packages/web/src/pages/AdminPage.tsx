@@ -9,9 +9,10 @@ import type {
   Rolle,
   Schueler,
   SchemaUebersichtZeile,
+  WpkKurs,
 } from '../types.js';
 
-type Bereich = 'stammdaten' | 'lehrkraefte' | 'schemata';
+type Bereich = 'stammdaten' | 'lehrkraefte' | 'wpk' | 'schemata';
 
 function fehlerText(e: unknown): string {
   return e instanceof ApiError ? e.message : 'Unerwarteter Fehler';
@@ -39,6 +40,13 @@ export function AdminPage() {
         </button>
         <button
           type="button"
+          className={bereich === 'wpk' ? 'tab aktiv' : 'tab'}
+          onClick={() => setBereich('wpk')}
+        >
+          Wahlpflichtkurse
+        </button>
+        <button
+          type="button"
           className={bereich === 'schemata' ? 'tab aktiv' : 'tab'}
           onClick={() => setBereich('schemata')}
         >
@@ -48,6 +56,7 @@ export function AdminPage() {
 
       {bereich === 'stammdaten' && <StammdatenBereich />}
       {bereich === 'lehrkraefte' && <LehrkraefteBereich />}
+      {bereich === 'wpk' && <WpkBereich />}
       {bereich === 'schemata' && <SchemataBereich />}
     </div>
   );
@@ -521,6 +530,101 @@ function ZugriffVerwaltung({ lehrkraftId }: { lehrkraftId: number }) {
         </div>
       </div>
     </section>
+  );
+}
+
+// =====================================================================
+// Wahlpflichtkurse (WPK)
+// =====================================================================
+
+function WpkBereich() {
+  const [kurse, setKurse] = useState<WpkKurs[]>([]);
+  const [name, setName] = useState('');
+  const [fehler, setFehler] = useState<string | null>(null);
+
+  async function lade() {
+    setKurse(await adminApi.wpkKurse());
+  }
+
+  useEffect(() => {
+    lade().catch((e) => setFehler(fehlerText(e)));
+  }, []);
+
+  async function neu(e: React.FormEvent) {
+    e.preventDefault();
+    setFehler(null);
+    try {
+      await adminApi.erstelleWpkKurs(name.trim());
+      setName('');
+      await lade();
+    } catch (err) {
+      setFehler(fehlerText(err));
+    }
+  }
+
+  async function umschalten(id: number, aktiv: boolean) {
+    setFehler(null);
+    try {
+      await adminApi.setzeWpkKursAktiv(id, aktiv);
+      await lade();
+    } catch (err) {
+      setFehler(fehlerText(err));
+    }
+  }
+
+  return (
+    <div className="admin-grid">
+      <section className="card">
+        <h3>Neuer Wahlpflichtkurs</h3>
+        <form className="formular" onSubmit={neu}>
+          <label>
+            Kursname
+            <input value={name} onChange={(e) => setName(e.target.value)} required />
+          </label>
+          <button type="submit">Kurs anlegen</button>
+        </form>
+        {fehler && <p className="fehler" role="alert">{fehler}</p>}
+        <p className="muted hinweis">
+          Inaktive Kurse erscheinen nicht mehr in der Kursauswahl der Noteneingabe,
+          bleiben aber für bestehende Zuordnungen erhalten.
+        </p>
+      </section>
+
+      <section className="card">
+        <h3>Kurse</h3>
+        <table className="tabelle">
+          <thead>
+            <tr>
+              <th>Kurs</th>
+              <th>Status</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {kurse.map((k) => (
+              <tr key={k.id}>
+                <td className="name">{k.name}</td>
+                <td>{k.aktiv ? 'aktiv' : 'inaktiv'}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={() => void umschalten(k.id, k.aktiv !== 1)}
+                  >
+                    {k.aktiv ? 'deaktivieren' : 'aktivieren'}
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {kurse.length === 0 && (
+              <tr>
+                <td colSpan={3} className="muted">Noch keine Kurse angelegt.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
+    </div>
   );
 }
 

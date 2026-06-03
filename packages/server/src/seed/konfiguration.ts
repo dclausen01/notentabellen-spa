@@ -243,13 +243,8 @@ export function baueKonfiguration(): Konfiguration {
       punkte: punkte as number,
       notentext: notentext as string,
     })),
-    wpkKurse: [
-      'Tierpädagogik',
-      'Nahrungsmittelzubereitung',
-      'U3-Kurs',
-      'OGS',
-      'Erste Hilfe am Kind',
-    ],
+    // Standard-Wahlpflichtkurse; weitere sind über die Admin-Konsole pflegbar.
+    wpkKurse: ['Krippe (U3)', 'Nahrungsmittelzubereitung'],
     faecher: [
       { schluessel: 'LF1', name: 'Lernfeld 1', typ: 'LF' },
       { schluessel: 'LF2', name: 'Lernfeld 2', typ: 'LF' },

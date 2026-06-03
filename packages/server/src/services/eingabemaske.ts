@@ -17,6 +17,12 @@ export interface MaskeZeile {
   komponenten: Record<string, MaskeWert>;
   /** Bei direktem Modus: der einzelne Wert. */
   direkt: MaskeWert | null;
+  /** Nur bei WPK: belegter Kurs (id) oder null. */
+  wpkKursId?: number | null;
+}
+export interface WpkKursOption {
+  id: number;
+  name: string;
 }
 export interface Eingabemaske {
   klasseId: number;
@@ -27,6 +33,8 @@ export interface Eingabemaske {
   deaktivierbar: boolean;
   komponenten: MaskeKomponente[];
   zeilen: MaskeZeile[];
+  /** Nur bei WPK gesetzt: wählbare Kurse für die Kurs-Spalte. */
+  wpkKurse?: WpkKursOption[];
 }
 
 /**
@@ -80,6 +88,17 @@ export function baueEingabemaske(
     'SELECT wert, ist_na FROM fachnote_direkt WHERE schueler_id = ? AND fach_id = ? AND halbjahr = ?',
   );
 
+  // WPK: zusätzlich der belegte Kurs pro Schüler:in.
+  const istWpk = fachSchluessel === 'WPK';
+  const wpkKurse = istWpk
+    ? (db
+        .prepare('SELECT id, name FROM wpk_kurs WHERE aktiv = 1 ORDER BY name')
+        .all() as { id: number; name: string }[])
+    : [];
+  const wpkKursStmt = db.prepare(
+    'SELECT wpk_kurs_id FROM wpk_eingabe WHERE schueler_id = ? AND halbjahr = ?',
+  );
+
   const zeilen: MaskeZeile[] = schueler.map((s) => {
     const komponentenWerte: Record<string, MaskeWert> = {};
     let direkt: MaskeWert | null = null;
@@ -104,13 +123,18 @@ export function baueEingabemaske(
       };
     }
 
-    return {
+    const zeile: MaskeZeile = {
       schuelerId: s.id,
       name: s.name,
       vorname: s.vorname,
       komponenten: komponentenWerte,
       direkt,
     };
+    if (istWpk) {
+      const row = wpkKursStmt.get(s.id, halbjahr) as { wpk_kurs_id: number } | undefined;
+      zeile.wpkKursId = row?.wpk_kurs_id ?? null;
+    }
+    return zeile;
   });
 
   return {
@@ -122,5 +146,6 @@ export function baueEingabemaske(
     deaktivierbar: schema.deaktivierbar === 1,
     komponenten,
     zeilen,
+    ...(istWpk ? { wpkKurse } : {}),
   };
 }

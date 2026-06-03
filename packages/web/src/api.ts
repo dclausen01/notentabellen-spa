@@ -11,6 +11,7 @@ import type {
   Rolle,
   Schueler,
   SchemaUebersichtZeile,
+  WpkKurs,
   ZeugnisZeile,
 } from './types.js';
 
@@ -118,6 +119,9 @@ export const api = {
     istNa: boolean;
   }) => apiFetch<void>('/api/noten/direkt', { method: 'PUT', body: JSON.stringify(body) }),
 
+  speichereWpkKurs: (body: { schuelerId: number; halbjahr: number; wpkKursId: number | null }) =>
+    apiFetch<void>('/api/noten/wpk-kurs', { method: 'PUT', body: JSON.stringify(body) }),
+
   schuelerFach: (schuelerId: number, fach: string) =>
     apiFetch<ErgebnisHalbjahr[]>(`/api/schueler/${schuelerId}/fach/${encodeURIComponent(fach)}`),
 
@@ -190,4 +194,18 @@ export const adminApi = {
     apiFetch<SchemaUebersichtZeile[]>(
       `/api/admin/schemata?bildungsgang=${encodeURIComponent(bildungsgang)}`,
     ),
+
+  wpkKurse: () => apiFetch<WpkKurs[]>('/api/admin/wpk-kurse'),
+
+  erstelleWpkKurs: (name: string) =>
+    apiFetch<{ id: number }>('/api/admin/wpk-kurse', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  setzeWpkKursAktiv: (id: number, aktiv: boolean) =>
+    apiFetch<void>(`/api/admin/wpk-kurse/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ aktiv }),
+    }),
 };

@@ -93,6 +93,12 @@ export function EingabePage() {
     void ladeVorschau(schuelerId, fach, halbjahr);
   }
 
+  async function speichereKurs(schuelerId: number, wpkKursId: number | null) {
+    if (halbjahr == null) return;
+    await api.speichereWpkKurs({ schuelerId, halbjahr, wpkKursId });
+    aktualisiereZelle(schuelerId, (z) => ({ ...z, wpkKursId }));
+  }
+
   function aktualisiereZelle(schuelerId: number, fn: (z: Eingabemaske['zeilen'][number]) => Eingabemaske['zeilen'][number]) {
     setMaske((m) =>
       m ? { ...m, zeilen: m.zeilen.map((z) => (z.schuelerId === schuelerId ? fn(z) : z)) } : m,
@@ -162,6 +168,7 @@ export function EingabePage() {
           <thead>
             <tr>
               <th>Name, Vorname</th>
+              {maske.wpkKurse && <th>Kurs</th>}
               {maske.modus === 'komponenten_gewichtet'
                 ? maske.komponenten.map((k) => <th key={k.id}>{k.name}</th>)
                 : <th>Note</th>}
@@ -172,6 +179,23 @@ export function EingabePage() {
             {maske.zeilen.map((z) => (
               <tr key={z.schuelerId}>
                 <td className="name">{z.name}, {z.vorname}</td>
+                {maske.wpkKurse && (
+                  <td>
+                    <select
+                      value={z.wpkKursId ?? ''}
+                      onChange={(e) =>
+                        void speichereKurs(z.schuelerId, e.target.value ? Number(e.target.value) : null)
+                      }
+                    >
+                      <option value="">– kein Kurs –</option>
+                      {maske.wpkKurse.map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                )}
                 {maske.modus === 'komponenten_gewichtet' ? (
                   maske.komponenten.map((k) => (
                     <td key={k.id}>
@@ -196,7 +220,16 @@ export function EingabePage() {
             ))}
             {maske.zeilen.length === 0 && (
               <tr>
-                <td colSpan={3} className="muted">Keine Schüler:innen in dieser Klasse.</td>
+                <td
+                  colSpan={
+                    2 +
+                    (maske.wpkKurse ? 1 : 0) +
+                    (maske.modus === 'komponenten_gewichtet' ? maske.komponenten.length : 1)
+                  }
+                  className="muted"
+                >
+                  Keine Schüler:innen in dieser Klasse.
+                </td>
               </tr>
             )}
           </tbody>

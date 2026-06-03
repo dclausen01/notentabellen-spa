@@ -37,6 +37,12 @@ export interface MaskeZeile {
   vorname: string;
   komponenten: Record<string, MaskeWert>;
   direkt: MaskeWert | null;
+  wpkKursId?: number | null;
+}
+
+export interface WpkKursOption {
+  id: number;
+  name: string;
 }
 
 export interface Eingabemaske {
@@ -48,6 +54,7 @@ export interface Eingabemaske {
   deaktivierbar: boolean;
   komponenten: MaskeKomponente[];
   zeilen: MaskeZeile[];
+  wpkKurse?: WpkKursOption[];
 }
 
 export interface ErgebnisHalbjahr {
@@ -125,6 +132,12 @@ export interface SchemaUebersichtKomponente {
   name: string;
   gewichtFix: number | null;
   restAnteil: boolean;
+}
+
+export interface WpkKurs {
+  id: number;
+  name: string;
+  aktiv: number;
 }
 
 export interface SchemaUebersichtZeile {

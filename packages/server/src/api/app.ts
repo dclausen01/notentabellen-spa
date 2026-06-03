@@ -29,13 +29,17 @@ import {
   deaktiviereSchueler,
   entferneKlassenleitung,
   entferneLehrauftrag,
+  erstelleWpkKurs,
   klassenleitungenVonLehrkraft,
   lehrauftraegeVonLehrkraft,
   listeBildungsgaenge,
   listeFaecher,
   listeLehrkraefte,
+  listeWpkKurse,
   schemaUebersicht,
   setzeLehrkraftRolle,
+  setzeWpkKursAktiv,
+  speichereWpkKurs,
 } from '../db/admin.js';
 import {
   berechneFachFuerSchueler,
@@ -280,6 +284,26 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
     return reply.code(204).send();
   });
 
+  // WPK: belegten Kurs einer Schüler:in für ein Halbjahr setzen/entfernen.
+  app.put('/api/noten/wpk-kurs', async (req, reply) => {
+    const b = req.body as Partial<{
+      schuelerId: number;
+      halbjahr: number;
+      wpkKursId: number | null;
+    }>;
+    if (b.schuelerId === undefined || b.halbjahr === undefined) {
+      return reply.code(400).send({ fehler: 'schuelerId und halbjahr erforderlich' });
+    }
+    const klasseId = klasseVonSchueler(db, b.schuelerId);
+    if (klasseId === undefined) return reply.code(404).send({ fehler: 'Schüler nicht gefunden' });
+    const id = ident(req);
+    if (id.rolle !== 'admin' && !hatLehrauftrag(db, id.lehrkraftId, 'WPK', klasseId, b.halbjahr)) {
+      return verboten(reply);
+    }
+    speichereWpkKurs(db, b.schuelerId, b.halbjahr, b.wpkKursId ?? null);
+    return reply.code(204).send();
+  });
+
   // --- Berechnung & Zeugnis (Klassenleitung der Klasse oder Admin) ---
   app.get('/api/schueler/:id/fach/:fach', async (req, reply) => {
     const p = req.params as { id: string; fach: string };
@@ -508,6 +532,33 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
       return reply.code(400).send({ fehler: 'lehrkraftId und klasseId erforderlich' });
     }
     entferneKlassenleitung(db, lehrkraftId, klasseId);
+    return reply.code(204).send();
+  });
+
+  // --- Wahlpflichtkurse (WPK) verwalten ---
+  app.get('/api/admin/wpk-kurse', async () => listeWpkKurse(db));
+
+  app.post('/api/admin/wpk-kurse', async (req, reply) => {
+    const b = req.body as Partial<{ name: string }>;
+    if (!b.name || !b.name.trim()) {
+      return reply.code(400).send({ fehler: 'name erforderlich' });
+    }
+    try {
+      const id = erstelleWpkKurs(db, b.name.trim());
+      return reply.code(201).send({ id });
+    } catch (e) {
+      return reply.code(400).send({ fehler: konfliktText(e, 'Kurs existiert bereits') });
+    }
+  });
+
+  app.put('/api/admin/wpk-kurse/:id', async (req, reply) => {
+    const id = zahl((req.params as { id: string }).id);
+    if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Kurs-ID' });
+    const b = req.body as Partial<{ aktiv: boolean }>;
+    if (typeof b.aktiv !== 'boolean') {
+      return reply.code(400).send({ fehler: 'aktiv (true/false) erforderlich' });
+    }
+    setzeWpkKursAktiv(db, id, b.aktiv);
     return reply.code(204).send();
   });
 
