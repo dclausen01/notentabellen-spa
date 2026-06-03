@@ -181,7 +181,7 @@ export function EingabePage() {
             </tr>
           </thead>
           <tbody>
-            {maske.zeilen.map((z) => (
+            {maske.zeilen.map((z, zeileIdx) => (
               <tr key={z.schuelerId}>
                 <td className="name">{z.name}, {z.vorname}</td>
                 {maske.wpkKurse && (
@@ -202,11 +202,13 @@ export function EingabePage() {
                   </td>
                 )}
                 {maske.modus === 'komponenten_gewichtet' ? (
-                  maske.komponenten.map((k) => (
+                  maske.komponenten.map((k, spalteIdx) => (
                     <td key={k.id}>
                       <NoteInput
                         wert={z.komponenten[k.schluessel] ?? { wert: null, istNa: false }}
                         naErlaubt
+                        navCol={spalteIdx}
+                        navRow={zeileIdx}
                         onSpeichern={(neu) => void speichereKomponente(z.schuelerId, k.id, neu)}
                       />
                     </td>
@@ -216,6 +218,8 @@ export function EingabePage() {
                     <NoteInput
                       wert={z.direkt ?? { wert: null, istNa: false }}
                       naErlaubt={maske.deaktivierbar}
+                      navCol={0}
+                      navRow={zeileIdx}
                       onSpeichern={(neu) => void speichereDirekt(z.schuelerId, neu)}
                     />
                   </td>

@@ -26,7 +26,9 @@ import {
 import {
   aktiveHalbjahreFuerFachKlasse,
   aktualisiereLehrkraftName,
+  aktualisiereSchueler,
   deaktiviereSchueler,
+  loescheSchuelerHart,
   entferneKlassenleitung,
   entferneLehrauftrag,
   erstelleWpkKurs,
@@ -428,10 +430,23 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
     }
   });
 
+  app.put('/api/admin/schueler/:id', async (req, reply) => {
+    const id = zahl((req.params as { id: string }).id);
+    if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Schüler-ID' });
+    const b = req.body as Partial<{ name: string; vorname: string }>;
+    if (!b.name || !b.vorname) {
+      return reply.code(400).send({ fehler: 'name und vorname erforderlich' });
+    }
+    aktualisiereSchueler(db, id, b.name.trim(), b.vorname.trim());
+    return reply.code(204).send();
+  });
+
+  // ?hart=1 löscht endgültig (inkl. Noten), sonst nur deaktivieren.
   app.delete('/api/admin/schueler/:id', async (req, reply) => {
     const id = zahl((req.params as { id: string }).id);
     if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Schüler-ID' });
-    deaktiviereSchueler(db, id);
+    if ((req.query as { hart?: string }).hart === '1') loescheSchuelerHart(db, id);
+    else deaktiviereSchueler(db, id);
     return reply.code(204).send();
   });
 

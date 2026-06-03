@@ -143,6 +143,26 @@ export function deaktiviereSchueler(db: DB, id: number): void {
   db.prepare('UPDATE schueler SET aktiv = 0 WHERE id = ?').run(id);
 }
 
+export function aktualisiereSchueler(db: DB, id: number, name: string, vorname: string): void {
+  db.prepare('UPDATE schueler SET name = ?, vorname = ? WHERE id = ?').run(name, vorname, id);
+}
+
+/**
+ * Löscht eine Schüler:in endgültig inklusive aller erfassten Noten/Ergebnisse
+ * (Komponenten- und Direktnoten, WPK-Eingaben, berechnete Ergebnisse). In einer
+ * Transaktion, damit keine verwaisten Fremdschlüssel zurückbleiben.
+ */
+export function loescheSchuelerHart(db: DB, id: number): void {
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM komponentennote WHERE schueler_id = ?').run(id);
+    db.prepare('DELETE FROM fachnote_direkt WHERE schueler_id = ?').run(id);
+    db.prepare('DELETE FROM wpk_eingabe WHERE schueler_id = ?').run(id);
+    db.prepare('DELETE FROM ergebnis WHERE schueler_id = ?').run(id);
+    db.prepare('DELETE FROM schueler WHERE id = ?').run(id);
+  });
+  tx();
+}
+
 export interface WpkKurs {
   id: number;
   name: string;

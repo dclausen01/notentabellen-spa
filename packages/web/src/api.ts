@@ -156,6 +156,12 @@ export const adminApi = {
   deaktiviereSchueler: (id: number) =>
     apiFetch<void>(`/api/admin/schueler/${id}`, { method: 'DELETE' }),
 
+  aktualisiereSchueler: (id: number, body: { name: string; vorname: string }) =>
+    apiFetch<void>(`/api/admin/schueler/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+
+  loescheSchueler: (id: number) =>
+    apiFetch<void>(`/api/admin/schueler/${id}?hart=1`, { method: 'DELETE' }),
+
   lehrkraefte: () => apiFetch<Lehrkraft[]>('/api/admin/lehrkraefte'),
 
   erstelleLehrkraft: (body: { name?: string; loginSub: string; rolle: Rolle }) =>

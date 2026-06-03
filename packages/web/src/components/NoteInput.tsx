@@ -6,6 +6,28 @@ interface Props {
   /** Erlaubt das Setzen auf „nicht belegt" (n/a). */
   naErlaubt: boolean;
   onSpeichern: (neu: MaskeWert) => void;
+  /** Spalten-/Zeilenindex für die spaltenweise Tab-/Enter-Navigation. */
+  navCol?: number;
+  navRow?: number;
+}
+
+/**
+ * Sammelt alle Noteneingaben der Tabelle und sortiert sie spaltenweise
+ * (erst Spalte, dann Zeile) — so springt Tab/Enter in derselben Spalte nach
+ * unten und erst am Spaltenende in die nächste Spalte.
+ */
+function navInputs(von: HTMLInputElement): HTMLInputElement[] {
+  const tabelle = von.closest('table');
+  if (!tabelle) return [von];
+  const inputs = Array.from(
+    tabelle.querySelectorAll<HTMLInputElement>('input[data-nav-col]'),
+  );
+  inputs.sort((a, b) => {
+    const ca = Number(a.dataset['navCol']);
+    const cb = Number(b.dataset['navCol']);
+    return ca !== cb ? ca - cb : Number(a.dataset['navRow']) - Number(b.dataset['navRow']);
+  });
+  return inputs;
 }
 
 /**
@@ -13,7 +35,7 @@ interface Props {
  * Verlassen des Feldes bzw. beim Umschalten von n/a (debouncefrei, da Speichern
  * an `onBlur` hängt).
  */
-export function NoteInput({ wert, naErlaubt, onSpeichern }: Props) {
+export function NoteInput({ wert, naErlaubt, onSpeichern, navCol, navRow }: Props) {
   const [text, setText] = useState(wert.wert?.toString() ?? '');
   const [fehler, setFehler] = useState(false);
 
@@ -54,10 +76,28 @@ export function NoteInput({ wert, naErlaubt, onSpeichern }: Props) {
         value={text}
         placeholder="–"
         aria-label="Punkte 0 bis 15"
+        {...(navCol !== undefined ? { 'data-nav-col': navCol, 'data-nav-row': navRow } : {})}
         onChange={(e) => setText(e.target.value)}
         onBlur={uebernehmen}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          if (navCol === undefined) {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+            return;
+          }
+          // Spaltenweise Navigation: Enter/Tab → nächste Zeile derselben Spalte,
+          // am Spaltenende in die nächste Spalte (Shift = rückwärts).
+          if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault();
+            const inputs = navInputs(e.currentTarget);
+            const i = inputs.indexOf(e.currentTarget);
+            const ziel = e.shiftKey ? inputs[i - 1] : inputs[i + 1];
+            if (ziel) {
+              ziel.focus();
+              ziel.select();
+            } else {
+              e.currentTarget.blur();
+            }
+          }
         }}
       />
       {naErlaubt && (

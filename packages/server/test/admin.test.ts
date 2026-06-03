@@ -100,6 +100,37 @@ describe('Stammdaten anlegen', () => {
     const liste = await json('GET', `/api/klassen/${klasseId}/schueler`, adminToken);
     expect(liste.body).toHaveLength(0);
   });
+
+  it('bearbeitet den Namen einer Schüler:in', async () => {
+    const klasseId = erstelleKlasse(db, 'SPA C', '2025/26', 'SPA_REGULAR');
+    const s = await json('POST', `/api/admin/klassen/${klasseId}/schueler`, adminToken, {
+      name: 'Falsch', vorname: 'Ge',
+    });
+    const r = await json('PUT', `/api/admin/schueler/${s.body.id}`, adminToken, {
+      name: 'Richtig', vorname: 'Tim',
+    });
+    expect(r.status).toBe(204);
+    const liste = await json('GET', `/api/klassen/${klasseId}/schueler`, adminToken);
+    const s2 = liste.body.find((x: any) => x.id === s.body.id);
+    expect([s2.name, s2.vorname]).toEqual(['Richtig', 'Tim']);
+  });
+
+  it('löscht eine Schüler:in endgültig inkl. Noten (?hart=1)', async () => {
+    const klasseId = erstelleKlasse(db, 'SPA D', '2025/26', 'SPA_REGULAR');
+    const s = await json('POST', `/api/admin/klassen/${klasseId}/schueler`, adminToken, {
+      name: 'Weg', vorname: 'Ganz',
+    });
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: s.body.id, fach: 'LF1', halbjahr: 1, wert: 9, istNa: false,
+    });
+    const r = await json('DELETE', `/api/admin/schueler/${s.body.id}?hart=1`, adminToken);
+    expect(r.status).toBe(204);
+    expect(db.prepare('SELECT 1 FROM schueler WHERE id = ?').get(s.body.id)).toBeUndefined();
+    const noten = db
+      .prepare('SELECT COUNT(*) AS n FROM fachnote_direkt WHERE schueler_id = ?')
+      .get(s.body.id) as { n: number };
+    expect(noten.n).toBe(0);
+  });
 });
 
 describe('Lehrkraft-Provisionierung & Zugriff', () => {

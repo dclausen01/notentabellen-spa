@@ -34,6 +34,8 @@ function CsvImport({
   const [bericht, setBericht] = useState<ImportBericht | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const [laeuft, setLaeuft] = useState(false);
+  // WinSchool & Co. exportieren i. d. R. Windows-Codierung (ANSI) → Default.
+  const [kodierung, setKodierung] = useState('windows-1252');
 
   async function datei(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -43,7 +45,8 @@ function CsvImport({
     setBericht(null);
     setLaeuft(true);
     try {
-      const text = await f.text();
+      // Datei binär lesen und mit der gewählten Codierung dekodieren.
+      const text = new TextDecoder(kodierung).decode(await f.arrayBuffer());
       setBericht(await importieren(text));
       onFertig();
     } catch (err) {
@@ -57,6 +60,13 @@ function CsvImport({
     <section className="card span-2">
       <h3>{titel}</h3>
       <p className="muted hinweis">{hinweis}</p>
+      <label className="filterleiste">
+        Zeichencodierung
+        <select value={kodierung} onChange={(e) => setKodierung(e.target.value)} disabled={laeuft}>
+          <option value="windows-1252">Windows (ANSI / windows-1252)</option>
+          <option value="utf-8">Unicode (UTF-8)</option>
+        </select>
+      </label>
       <input type="file" accept=".csv,text/csv" onChange={(e) => void datei(e)} disabled={laeuft} />
       {laeuft && <p className="muted">Importiere …</p>}
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
@@ -246,6 +256,9 @@ function SchuelerVerwaltung({ klasseId }: { klasseId: number }) {
   const [name, setName] = useState('');
   const [vorname, setVorname] = useState('');
   const [fehler, setFehler] = useState<string | null>(null);
+  const [bearbeiteId, setBearbeiteId] = useState<number | null>(null);
+  const [eName, setEName] = useState('');
+  const [eVorname, setEVorname] = useState('');
 
   async function lade() {
     setSchueler(await api.schueler(klasseId));
@@ -269,9 +282,32 @@ function SchuelerVerwaltung({ klasseId }: { klasseId: number }) {
     }
   }
 
-  async function entfernen(id: number) {
-    if (!confirm('Schüler:in wirklich deaktivieren?')) return;
+  function startBearbeiten(s: Schueler) {
+    setBearbeiteId(s.id);
+    setEName(s.name);
+    setEVorname(s.vorname);
+  }
+
+  async function speichereBearbeitung(id: number) {
+    setFehler(null);
+    try {
+      await adminApi.aktualisiereSchueler(id, { name: eName, vorname: eVorname });
+      setBearbeiteId(null);
+      await lade();
+    } catch (err) {
+      setFehler(fehlerText(err));
+    }
+  }
+
+  async function deaktivieren(id: number) {
+    if (!confirm('Schüler:in deaktivieren? (bleibt mit Noten erhalten, nur ausgeblendet)')) return;
     await adminApi.deaktiviereSchueler(id);
+    await lade();
+  }
+
+  async function loeschen(id: number) {
+    if (!confirm('Schüler:in ENDGÜLTIG löschen? Alle erfassten Noten gehen verloren.')) return;
+    await adminApi.loescheSchueler(id);
     await lade();
   }
 
@@ -301,13 +337,36 @@ function SchuelerVerwaltung({ klasseId }: { klasseId: number }) {
         <tbody>
           {schueler.map((s) => (
             <tr key={s.id}>
-              <td className="name">{s.name}</td>
-              <td>{s.vorname}</td>
-              <td>
-                <button type="button" className="link-button" onClick={() => void entfernen(s.id)}>
-                  deaktivieren
-                </button>
-              </td>
+              {bearbeiteId === s.id ? (
+                <>
+                  <td><input value={eName} onChange={(e) => setEName(e.target.value)} /></td>
+                  <td><input value={eVorname} onChange={(e) => setEVorname(e.target.value)} /></td>
+                  <td>
+                    <button type="button" className="link-button" onClick={() => void speichereBearbeitung(s.id)}>
+                      speichern
+                    </button>
+                    <button type="button" className="link-button" onClick={() => setBearbeiteId(null)}>
+                      abbrechen
+                    </button>
+                  </td>
+                </>
+              ) : (
+                <>
+                  <td className="name">{s.name}</td>
+                  <td>{s.vorname}</td>
+                  <td className="aktionen">
+                    <button type="button" className="link-button" title="Bearbeiten" onClick={() => startBearbeiten(s)}>
+                      ✎ bearbeiten
+                    </button>
+                    <button type="button" className="link-button" onClick={() => void deaktivieren(s.id)}>
+                      deaktivieren
+                    </button>
+                    <button type="button" className="link-button gefahr" onClick={() => void loeschen(s.id)}>
+                      löschen
+                    </button>
+                  </td>
+                </>
+              )}
             </tr>
           ))}
           {schueler.length === 0 && (

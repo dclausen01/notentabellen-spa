@@ -169,6 +169,9 @@ input, select {
 }
 .chip-liste li.muted { background: none; }
 
+.aktionen { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+.link-button.gefahr { color: var(--danger); }
+
 /* Noteneingabe-Zelle */
 .note-input { display: flex; align-items: center; gap: 0.25rem; justify-content: center; }
 .note-input input { width: 3.2rem; text-align: center; }
