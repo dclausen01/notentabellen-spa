@@ -29,6 +29,36 @@ describe('Migration & Seed', () => {
     expect(nachher).toBe(vorher);
   });
 
+  it('erneuter Seed bricht NICHT, wenn bereits Komponentennoten existieren (FK-Schutz)', () => {
+    // Klasse + Schüler + eine LF2-Komponentennote anlegen
+    db.prepare("INSERT INTO klasse (bezeichnung, schuljahr, bildungsgang_id) VALUES ('K', '2025/26', (SELECT id FROM bildungsgang WHERE schluessel='SPA_PIA'))").run();
+    const klasseId = Number(
+      (db.prepare("SELECT id FROM klasse WHERE bezeichnung='K'").get() as { id: number }).id,
+    );
+    db.prepare('INSERT INTO schueler (name, vorname, klasse_id) VALUES (?, ?, ?)').run('A', 'B', klasseId);
+    const schuelerId = Number(
+      (db.prepare("SELECT id FROM schueler WHERE name='A'").get() as { id: number }).id,
+    );
+    const komp = db
+      .prepare(
+        `SELECT k.id FROM komponente k JOIN bewertungsschema bs ON bs.id=k.schema_id
+           JOIN fach f ON f.id=bs.fach_id
+          WHERE f.schluessel='LF2' AND bs.halbjahr=1 LIMIT 1`,
+      )
+      .get() as { id: number };
+    db.prepare(
+      'INSERT INTO komponentennote (schueler_id, komponente_id, halbjahr, wert, ist_na) VALUES (?, ?, 1, 11, 0)',
+    ).run(schuelerId, komp.id);
+
+    // Erneuter Seed darf nicht am Fremdschlüssel scheitern …
+    expect(() => seed(db)).not.toThrow();
+    // … und die Note (samt Komponente) bleibt erhalten.
+    const note = db
+      .prepare('SELECT wert FROM komponentennote WHERE schueler_id=? AND komponente_id=?')
+      .get(schuelerId, komp.id) as { wert: number } | undefined;
+    expect(note?.wert).toBe(11);
+  });
+
   it('füllt die Notenskala mit 16 Einträgen', () => {
     const n = (db.prepare('SELECT COUNT(*) AS n FROM notenskala').get() as { n: number }).n;
     expect(n).toBe(16);

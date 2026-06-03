@@ -67,10 +67,16 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
     const schemaId = db.prepare(
       'SELECT id FROM bewertungsschema WHERE fach_id = ? AND bildungsgang_id = ? AND halbjahr = ?',
     );
-    const kompDelete = db.prepare('DELETE FROM komponente WHERE schema_id = ?');
-    const kompInsert = db.prepare(
+    // Komponenten per Upsert auf (schema_id, schluessel): bestehende Komponenten
+    // (und damit referenzierende komponentennote-Zeilen) bleiben erhalten. Ein
+    // Löschen+Neuanlegen würde am Fremdschlüssel scheitern, sobald Noten
+    // existieren.
+    const kompUpsert = db.prepare(
       `INSERT INTO komponente (schema_id, schluessel, name, gewicht_fix, rest_anteil, sortierung)
-       VALUES (@schemaId, @schluessel, @name, @gewichtFix, @restAnteil, @sortierung)`,
+       VALUES (@schemaId, @schluessel, @name, @gewichtFix, @restAnteil, @sortierung)
+       ON CONFLICT(schema_id, schluessel) DO UPDATE SET
+         name = excluded.name, gewicht_fix = excluded.gewicht_fix,
+         rest_anteil = excluded.rest_anteil, sortierung = excluded.sortierung`,
     );
 
     for (const s of konfig.schemata) {
@@ -94,9 +100,8 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
         externHalbjahr: s.externHalbjahr ?? null,
       });
       const sid = (schemaId.get(fid, bid, s.halbjahr) as { id: number }).id;
-      kompDelete.run(sid);
       s.komponenten.forEach((k, i) => {
-        kompInsert.run({
+        kompUpsert.run({
           schemaId: sid,
           schluessel: k.schluessel,
           name: k.name,
@@ -105,6 +110,16 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
           sortierung: i,
         });
       });
+      // Veraltete Komponenten (nicht mehr in der Konfiguration) entfernen — aber
+      // nur, wenn keine Noten daran hängen (sonst Fremdschlüsselbruch / Datenverlust).
+      const behalten = s.komponenten.map((k) => k.schluessel);
+      const platzhalter = behalten.map(() => '?').join(',');
+      db.prepare(
+        `DELETE FROM komponente
+          WHERE schema_id = ?
+            ${behalten.length ? `AND schluessel NOT IN (${platzhalter})` : ''}
+            AND id NOT IN (SELECT komponente_id FROM komponentennote)`,
+      ).run(sid, ...behalten);
     }
   });
   tx();
