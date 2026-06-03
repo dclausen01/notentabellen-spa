@@ -1,5 +1,6 @@
 import { berechneFach, type EingabeHalbjahr, type ErgebnisHalbjahr } from '@notentabellen/core';
 import type { DB } from '../db/connection.js';
+import { deaktivierteKomponenten } from '../db/komponenten.js';
 import { ladeSchema } from '../db/lade-schema.js';
 import {
   bildungsgangVonSchueler,
@@ -17,12 +18,34 @@ export function berechneFachFuerSchueler(
   fachSchluessel: string,
 ): ErgebnisHalbjahr[] {
   const bildungsgang = bildungsgangVonSchueler(db, schuelerId);
-  const schema = ladeSchema(db, fachSchluessel, bildungsgang);
+  let schema = ladeSchema(db, fachSchluessel, bildungsgang);
   if (schema.length === 0) return [];
+
+  // Pro Klasse deaktivierte (Rest-)Komponenten herausfiltern — die Engine
+  // verteilt das Restbudget dann auf die verbleibenden aktiven Komponenten.
+  const klasseId = klasseVonSchuelerId(db, schuelerId);
+  if (klasseId !== undefined) {
+    const deaktiviert = deaktivierteKomponenten(db, klasseId, fachSchluessel);
+    if (deaktiviert.size > 0) {
+      schema = schema.map((s) => ({
+        ...s,
+        komponenten: s.komponenten.filter((k) => !deaktiviert.has(`${s.halbjahr}:${k.schluessel}`)),
+      }));
+    }
+  }
+
   const fId = fachId(db, fachSchluessel);
   const eingaben = ladeEingaben(db, schuelerId, fId, schema);
   injiziereExterneWerte(db, schuelerId, fachSchluessel, bildungsgang, eingaben);
   return berechneFach({ schema, eingaben });
+}
+
+function klasseVonSchuelerId(db: DB, schuelerId: number): number | undefined {
+  return (
+    db.prepare('SELECT klasse_id FROM schueler WHERE id = ?').get(schuelerId) as
+      | { klasse_id: number }
+      | undefined
+  )?.klasse_id;
 }
 
 /**

@@ -172,6 +172,25 @@ input, select {
 .aktionen { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
 .link-button.gefahr { color: var(--danger); }
 
+.komponenten-konfig {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.komponenten-konfig .check {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+.komponenten-konfig .check input { width: auto; }
+
 /* Noteneingabe-Zelle */
 .note-input { display: flex; align-items: center; gap: 0.25rem; justify-content: center; }
 .note-input input { width: 3.2rem; text-align: center; }

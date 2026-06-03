@@ -118,7 +118,8 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
         `DELETE FROM komponente
           WHERE schema_id = ?
             ${behalten.length ? `AND schluessel NOT IN (${platzhalter})` : ''}
-            AND id NOT IN (SELECT komponente_id FROM komponentennote)`,
+            AND id NOT IN (SELECT komponente_id FROM komponentennote)
+            AND id NOT IN (SELECT komponente_id FROM komponente_deaktiviert)`,
       ).run(sid, ...behalten);
     }
   });

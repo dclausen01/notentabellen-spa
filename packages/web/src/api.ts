@@ -7,6 +7,7 @@ import type {
   FachOption,
   Identitaet,
   Klasse,
+  KomponenteKonfig,
   Lehrkraft,
   ImportBericht,
   Rolle,
@@ -138,6 +139,17 @@ export const api = {
 
   zeugnisExport: (klasseId: number, halbjahr: number) =>
     apiDownload(`/api/zeugnis/export?klasseId=${klasseId}&halbjahr=${halbjahr}`),
+
+  klassenKomponenten: (klasseId: number, fach: string) =>
+    apiFetch<KomponenteKonfig[]>(
+      `/api/klassen/${klasseId}/komponenten?fach=${encodeURIComponent(fach)}`,
+    ),
+
+  setzeKomponenteAktiv: (klasseId: number, komponenteId: number, aktiv: boolean) =>
+    apiFetch<void>(`/api/klassen/${klasseId}/komponenten`, {
+      method: 'PUT',
+      body: JSON.stringify({ komponenteId, aktiv }),
+    }),
 };
 
 export const adminApi = {

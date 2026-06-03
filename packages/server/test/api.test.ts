@@ -158,6 +158,54 @@ describe('Zeugnis respektiert Bildungsgang (reguläre Praxis nur 2.+3. Hj.)', ()
   });
 });
 
+describe('LF3-Komponenten pro Klasse deaktivieren (N4)', () => {
+  it('deaktivierte Rest-Komponente verschwindet aus der Maske und wird neu gewichtet', async () => {
+    // LF3, 1. Hj.: paedagogik(0.4 fix) + kunst/spiel/musik (Rest = 0.6/3 = 0.2 je)
+    const konfig = await json('GET', `/api/klassen/${piaKlasse}/komponenten?fach=LF3`, adminToken);
+    expect(konfig.status).toBe(200);
+    const musik = konfig.body.find((k: any) => k.halbjahr === 1 && k.schluessel === 'musik');
+    expect(musik.aktiv).toBe(true);
+
+    // paedagogik=10, kunst=10, spiel=10, musik=4 → mit Musik:
+    //   0.4*10 + 0.2*10 + 0.2*10 + 0.2*4 = 4 + 2 + 2 + 0.8 = 8.8
+    const setze = async (sl: string, wert: number) => {
+      const id = (await json('GET', `/api/eingabe?klasseId=${piaKlasse}&fach=LF3&halbjahr=1`, adminToken)).body
+        .komponenten.find((k: any) => k.schluessel === sl).id;
+      await json('PUT', '/api/noten/komponente', adminToken, {
+        schuelerId: schueler, komponenteId: id, halbjahr: 1, wert, istNa: false,
+      });
+    };
+    await setze('paedagogik', 10);
+    await setze('kunst', 10);
+    await setze('spiel', 10);
+    await setze('musik', 4);
+    let lf3 = (await json('GET', `/api/schueler/${schueler}/fach/LF3`, adminToken)).body.find((e: any) => e.halbjahr === 1);
+    expect(lf3.endpunkte).toBeCloseTo(8.8, 6);
+
+    // Musik (1. Hj.) deaktivieren → Rest = 0.6/2 = 0.3 je (kunst, spiel):
+    //   0.4*10 + 0.3*10 + 0.3*10 = 10
+    const r = await json('PUT', `/api/klassen/${piaKlasse}/komponenten`, adminToken, {
+      komponenteId: musik.komponenteId, aktiv: false,
+    });
+    expect(r.status).toBe(204);
+
+    const maske = (await json('GET', `/api/eingabe?klasseId=${piaKlasse}&fach=LF3&halbjahr=1`, adminToken)).body;
+    expect(maske.komponenten.map((k: any) => k.schluessel)).not.toContain('musik');
+
+    lf3 = (await json('GET', `/api/schueler/${schueler}/fach/LF3`, adminToken)).body.find((e: any) => e.halbjahr === 1);
+    expect(lf3.endpunkte).toBeCloseTo(10, 6);
+  });
+
+  it('feste Komponente (Pädagogik) ist nicht schaltbar (400)', async () => {
+    const maske = (await json('GET', `/api/eingabe?klasseId=${piaKlasse}&fach=LF3&halbjahr=1`, adminToken)).body;
+    const paed = maske.komponenten.find((k: any) => k.schluessel === 'paedagogik');
+    const r = await json('PUT', `/api/klassen/${piaKlasse}/komponenten`, adminToken, {
+      komponenteId: paed.id, aktiv: false,
+    });
+    expect(r.status).toBe(400);
+  });
+});
+
 describe('Vorwert-Anzeige (#7): zu verrechnender Wert aus Vorhalbjahr/Quelle', () => {
   it('LF1 (50/50): 2. Hj. zeigt die Endnote des 1. Hj. als Vorwert', async () => {
     await json('PUT', '/api/noten/direkt', adminToken, {

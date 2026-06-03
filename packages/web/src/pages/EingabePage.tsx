@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api.js';
+import { useAuth } from '../auth.js';
 import { NoteInput } from '../components/NoteInput.js';
 import { aktuellesHalbjahr } from '../lib/halbjahr.js';
 import type {
   Eingabemaske,
   FachOption,
   Klasse,
+  KomponenteKonfig,
   MaskeWert,
   VorwertInfo,
 } from '../types.js';
 
 export function EingabePage() {
+  const { ident } = useAuth();
   const [klassen, setKlassen] = useState<Klasse[]>([]);
   const [klasseId, setKlasseId] = useState<number | null>(null);
   const [faecher, setFaecher] = useState<FachOption[]>([]);
@@ -18,7 +21,10 @@ export function EingabePage() {
   const [halbjahr, setHalbjahr] = useState<number | null>(null);
   const [maske, setMaske] = useState<Eingabemaske | null>(null);
   const [vorschau, setVorschau] = useState<Record<number, string>>({});
+  const [komponentenKonfig, setKomponentenKonfig] = useState<KomponenteKonfig[]>([]);
   const [fehler, setFehler] = useState<string | null>(null);
+
+  const darfKomponentenSchalten = ident?.rolle === 'admin' || ident?.rolle === 'klassenleitung';
 
   useEffect(() => {
     api.klassen().then(setKlassen).catch((e) => setFehler(e.message));
@@ -67,11 +73,30 @@ export function EingabePage() {
       setMaske(m);
       setVorschau({});
       for (const z of m.zeilen) void ladeVorschau(z.schuelerId, fach, halbjahr);
+      // Schaltbare Rest-Komponenten (LF3) nur für KL/Admin laden.
+      if (darfKomponentenSchalten) {
+        api
+          .klassenKomponenten(klasseId, fach)
+          .then(setKomponentenKonfig)
+          .catch(() => setKomponentenKonfig([]));
+      } else {
+        setKomponentenKonfig([]);
+      }
     } catch (e) {
       setMaske(null);
       setFehler(e instanceof ApiError ? e.message : 'Fehler beim Laden');
     }
-  }, [klasseId, fach, halbjahr, ladeVorschau]);
+  }, [klasseId, fach, halbjahr, ladeVorschau, darfKomponentenSchalten]);
+
+  async function toggleKomponente(komponenteId: number, aktiv: boolean) {
+    if (klasseId == null) return;
+    try {
+      await api.setzeKomponenteAktiv(klasseId, komponenteId, aktiv);
+      await ladeMaske();
+    } catch (e) {
+      setFehler(e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen');
+    }
+  }
 
   useEffect(() => {
     void ladeMaske();
@@ -163,6 +188,25 @@ export function EingabePage() {
       </div>
 
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
+
+      {maske && halbjahr != null && komponentenKonfig.some((k) => k.halbjahr === halbjahr) && (
+        <div className="komponenten-konfig">
+          <span className="muted">Aktive Komponenten ({halbjahr}. Hj.):</span>
+          {komponentenKonfig
+            .filter((k) => k.halbjahr === halbjahr)
+            .map((k) => (
+              <label key={k.komponenteId} className="check">
+                <input
+                  type="checkbox"
+                  checked={k.aktiv}
+                  onChange={(e) => void toggleKomponente(k.komponenteId, e.target.checked)}
+                />
+                {k.name}
+              </label>
+            ))}
+        </div>
+      )}
+
       {maske?.vorwerte?.label && (
         <p className="muted">Verrechnung: {maske.vorwerte.label}</p>
       )}

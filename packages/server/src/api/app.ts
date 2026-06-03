@@ -12,6 +12,11 @@ import {
 } from '../auth/zugriff.js';
 import type { DB } from '../db/connection.js';
 import { fachId } from '../db/lade-eingaben.js';
+import {
+  komponentenKonfig,
+  istRestKomponente,
+  setzeKomponenteAktiv,
+} from '../db/komponenten.js';
 import { speichereDirektnote, speichereKomponentennote } from '../db/noten.js';
 import {
   erstelleKlasse,
@@ -183,6 +188,34 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
     if (!darfKlasseSehen(req, id)) return verboten(reply);
     const me = ident(req);
     return faecherFuerKlasse(db, id, me, istKlassenleitung(db, me.lehrkraftId, id));
+  });
+
+  // --- LF-(Rest-)Komponenten je Klasse aktivieren/deaktivieren (KL der Klasse oder Admin) ---
+  app.get('/api/klassen/:id/komponenten', async (req, reply) => {
+    const id = zahl((req.params as { id: string }).id);
+    const fach = (req.query as { fach?: string }).fach ?? 'LF3';
+    if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Klassen-ID' });
+    const me = ident(req);
+    const darf = me.rolle === 'admin' || istKlassenleitung(db, me.lehrkraftId, id);
+    if (!darf) return verboten(reply);
+    return komponentenKonfig(db, id, fach);
+  });
+
+  app.put('/api/klassen/:id/komponenten', async (req, reply) => {
+    const id = zahl((req.params as { id: string }).id);
+    if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Klassen-ID' });
+    const me = ident(req);
+    const darf = me.rolle === 'admin' || istKlassenleitung(db, me.lehrkraftId, id);
+    if (!darf) return verboten(reply);
+    const b = req.body as Partial<{ komponenteId: number; aktiv: boolean }>;
+    if (b.komponenteId === undefined || typeof b.aktiv !== 'boolean') {
+      return reply.code(400).send({ fehler: 'komponenteId und aktiv erforderlich' });
+    }
+    if (!istRestKomponente(db, b.komponenteId)) {
+      return reply.code(400).send({ fehler: 'Nur Rest-Komponenten sind schaltbar' });
+    }
+    setzeKomponenteAktiv(db, id, b.komponenteId, b.aktiv);
+    return reply.code(204).send();
   });
 
   // --- Eingabemaske: Fachlehrkraft mit Auftrag, Klassenleitung der Klasse, Admin ---

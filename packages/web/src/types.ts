@@ -158,6 +158,14 @@ export interface ImportBericht {
   fehler: { zeile: number; grund: string }[];
 }
 
+export interface KomponenteKonfig {
+  halbjahr: number;
+  komponenteId: number;
+  schluessel: string;
+  name: string;
+  aktiv: boolean;
+}
+
 export interface SchemaUebersichtZeile {
   fach: string;
   fachName: string;

@@ -71,9 +71,17 @@ export function baueEingabemaske(
     );
   }
 
-  const komponenten = db
-    .prepare('SELECT id, schluessel, name FROM komponente WHERE schema_id = ? ORDER BY sortierung')
-    .all(schema.id) as MaskeKomponente[];
+  // Pro Klasse deaktivierte Komponenten ausblenden (LF3-Rest-Komponenten).
+  const komponenten = (
+    db
+      .prepare(
+        `SELECT k.id, k.schluessel, k.name FROM komponente k
+          WHERE k.schema_id = ?
+            AND k.id NOT IN (SELECT komponente_id FROM komponente_deaktiviert WHERE klasse_id = ?)
+          ORDER BY k.sortierung`,
+      )
+      .all(schema.id, klasseId)
+  ) as MaskeKomponente[];
 
   const schueler = db
     .prepare(

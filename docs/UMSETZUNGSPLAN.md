@@ -349,6 +349,14 @@ Semikolon, BOM-tolerant):
   Mit Klasse → Klassenleitung, sonst Fachlehrkraft. `benutzername` =
   AD-`sAMAccountName`. Upsert über die Login-Kennung (kein Duplikat bei
   erneutem Import). Ergebnisbericht (angelegt / übersprungen / Fehler je Zeile).
+  Zeichencodierung beim Import wählbar (Default Windows/ANSI für WinSchool).
+
+**LF3-Komponenten pro Klasse (N4):** Klassenleitung/Admin können die
+Rest-Komponenten (Kunst, Spiel, Musik, Bewegung) je Klasse und Halbjahr
+aktivieren/deaktivieren (`komponente_deaktiviert`, Migration 003). Die
+Berechnung verteilt das Restbudget automatisch auf die verbleibenden aktiven
+Komponenten; deaktivierte Spalten verschwinden aus der Eingabemaske.
+Pädagogik/Bericht (feste Gewichte) bleiben fix.
 
 **Admin-UI (M6):** Administrationsbereich im Frontend (nur Rolle `admin`),
 serverseitig über `/api/admin/*` (eigener Admin-Hook) abgesichert. Funktionen:
