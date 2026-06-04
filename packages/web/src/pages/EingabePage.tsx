@@ -219,6 +219,7 @@ export function EingabePage() {
       )}
 
       {maske && (
+        <div className="tabelle-scroll">
         <table className="tabelle">
           <thead>
             <tr>
@@ -311,6 +312,7 @@ export function EingabePage() {
             )}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );
