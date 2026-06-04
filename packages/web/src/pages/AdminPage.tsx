@@ -221,6 +221,7 @@ function StammdatenBereich() {
 
       <section className="card">
         <h3>Klassen</h3>
+        <div className="tabelle-scroll">
         <table className="tabelle">
           <thead>
             <tr>
@@ -261,6 +262,7 @@ function StammdatenBereich() {
             )}
           </tbody>
         </table>
+        </div>
       </section>
 
       <CsvImport
@@ -350,6 +352,7 @@ function SchuelerVerwaltung({ klasseId }: { klasseId: number }) {
         <button type="submit">Hinzufügen</button>
       </form>
       {fehler && <p className="fehler" role="alert">{fehler}</p>}
+      <div className="tabelle-scroll">
       <table className="tabelle">
         <thead>
           <tr>
@@ -400,6 +403,7 @@ function SchuelerVerwaltung({ klasseId }: { klasseId: number }) {
           )}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }
@@ -493,6 +497,7 @@ function LehrkraefteBereich() {
 
       <section className="card">
         <h3>Lehrkräfte</h3>
+        <div className="tabelle-scroll">
         <table className="tabelle">
           <thead>
             <tr>
@@ -539,6 +544,7 @@ function LehrkraefteBereich() {
             )}
           </tbody>
         </table>
+        </div>
       </section>
 
       <CsvImport
@@ -752,6 +758,7 @@ function WpkBereich() {
 
       <section className="card">
         <h3>Kurse</h3>
+        <div className="tabelle-scroll">
         <table className="tabelle">
           <thead>
             <tr>
@@ -783,6 +790,7 @@ function WpkBereich() {
             )}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );
