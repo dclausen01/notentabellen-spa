@@ -164,6 +164,26 @@ export interface ImportBericht {
   fehler: { zeile: number; grund: string }[];
 }
 
+export interface NotenImportZeile {
+  zeile: number;
+  ok: boolean;
+  schueler: string;
+  fach: string;
+  halbjahr: number | null;
+  typ: string;
+  wert: number | null;
+  bisher: number | null;
+  grund?: string;
+}
+export interface NotenImportBericht {
+  geplant: number;
+  fehler: number;
+  proTyp: { endnote: number; direkt: number; pruefung: number };
+  schuelerFehlend: string[];
+  geschrieben: boolean;
+  zeilen: NotenImportZeile[];
+}
+
 export interface KomponenteKonfig {
   halbjahr: number;
   komponenteId: number;

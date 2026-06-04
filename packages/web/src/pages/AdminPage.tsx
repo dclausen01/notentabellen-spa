@@ -7,6 +7,7 @@ import type {
   ImportBericht,
   Klasse,
   Lehrkraft,
+  NotenImportBericht,
   Rolle,
   Schueler,
   SchemaUebersichtZeile,
@@ -84,6 +85,112 @@ function CsvImport({
                 </li>
               ))}
             </ul>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Import bereits berechneter Noten aus Altjahrgängen. Zweistufig: erst Probelauf
+ * (Vorschau ohne Schreibzugriff), dann bewusste Übernahme.
+ * CSV-Spalten: nachname;vorname;klasse;fach;halbjahr;typ;wert
+ *   typ = endnote (übernommene Endnote) | direkt | pruefung
+ */
+function NotenImport({ onFertig }: { onFertig: () => void }) {
+  const [csv, setCsv] = useState<string | null>(null);
+  const [dateiname, setDateiname] = useState<string>('');
+  const [bericht, setBericht] = useState<NotenImportBericht | null>(null);
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [laeuft, setLaeuft] = useState(false);
+  const [kodierung, setKodierung] = useState('utf-8');
+
+  async function datei(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    if (!f) return;
+    setFehler(null);
+    setBericht(null);
+    setLaeuft(true);
+    try {
+      const text = new TextDecoder(kodierung).decode(await f.arrayBuffer());
+      setCsv(text);
+      setDateiname(f.name);
+      setBericht(await adminApi.importNoten(text, false)); // Probelauf
+    } catch (err) {
+      setFehler(fehlerText(err));
+    } finally {
+      setLaeuft(false);
+    }
+  }
+
+  async function uebernehmen() {
+    if (!csv) return;
+    setFehler(null);
+    setLaeuft(true);
+    try {
+      setBericht(await adminApi.importNoten(csv, true));
+      onFertig();
+    } catch (err) {
+      setFehler(fehlerText(err));
+    } finally {
+      setLaeuft(false);
+    }
+  }
+
+  const fehlerZeilen = bericht?.zeilen.filter((z) => !z.ok) ?? [];
+
+  return (
+    <section className="card span-2">
+      <h3>Noten-Import (historisch)</h3>
+      <p className="muted hinweis">
+        Übernahme bereits berechneter Noten aus Altjahrgängen. CSV-Spalten:{' '}
+        <code>nachname;vorname;klasse;fach;halbjahr;typ;wert</code> mit{' '}
+        <code>typ</code> = <code>endnote</code> (übernommene Endnote),{' '}
+        <code>direkt</code> oder <code>pruefung</code>. Zuerst läuft ein Probelauf —
+        es wird erst nach „Übernehmen" geschrieben. Schüler:innen werden über
+        Name + Klasse zugeordnet.
+      </p>
+      <label className="filterleiste">
+        Zeichencodierung
+        <select value={kodierung} onChange={(e) => setKodierung(e.target.value)} disabled={laeuft}>
+          <option value="utf-8">Unicode (UTF-8)</option>
+          <option value="windows-1252">Windows (ANSI / windows-1252)</option>
+        </select>
+      </label>
+      <input type="file" accept=".csv,text/csv" onChange={(e) => void datei(e)} disabled={laeuft} />
+      {laeuft && <p className="muted">Verarbeite …</p>}
+      {fehler && <p className="fehler" role="alert">{fehler}</p>}
+      {bericht && (
+        <div>
+          <p className={bericht.geschrieben ? 'erfolg' : 'muted'}>
+            {bericht.geschrieben ? '✓ Übernommen: ' : 'Probelauf '}
+            {dateiname && <em>({dateiname})</em>} — {bericht.geplant} Werte{' '}
+            {bericht.geschrieben ? 'geschrieben' : 'geplant'} (Endnote{' '}
+            {bericht.proTyp.endnote}, direkt {bericht.proTyp.direkt}, Prüfung{' '}
+            {bericht.proTyp.pruefung}), {bericht.fehler} Fehler.
+          </p>
+          {bericht.schuelerFehlend.length > 0 && (
+            <p className="fehler">
+              Nicht zugeordnet ({bericht.schuelerFehlend.length}):{' '}
+              {bericht.schuelerFehlend.slice(0, 12).join(' · ')}
+              {bericht.schuelerFehlend.length > 12 ? ' …' : ''}
+            </p>
+          )}
+          {fehlerZeilen.length > 0 && (
+            <ul className="chip-liste">
+              {fehlerZeilen.slice(0, 30).map((z, i) => (
+                <li key={i} className="muted">
+                  Zeile {z.zeile}: {z.schueler} · {z.fach} {z.halbjahr}. Hj. — {z.grund}
+                </li>
+              ))}
+            </ul>
+          )}
+          {!bericht.geschrieben && bericht.geplant > 0 && (
+            <button type="button" onClick={() => void uebernehmen()} disabled={laeuft}>
+              {bericht.geplant} Werte übernehmen
+            </button>
           )}
         </div>
       )}
@@ -271,6 +378,8 @@ function StammdatenBereich() {
         importieren={adminApi.importSchueler}
         onFertig={() => void ladeKlassen()}
       />
+
+      <NotenImport onFertig={() => void ladeKlassen()} />
 
       {aktiveKlasse != null && <SchuelerVerwaltung klasseId={aktiveKlasse} />}
     </div>

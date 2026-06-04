@@ -63,6 +63,7 @@ import { baueEingabemaske } from '../services/eingabemaske.js';
 import { faecherFuerKlasse } from '../services/faecher.js';
 import { exportDateiname, zeugnisAlsXlsx } from '../services/export.js';
 import { importiereLehrkraefte, importiereSchueler } from '../services/import.js';
+import { importiereNoten } from '../services/import-noten.js';
 
 export interface AppOptions {
   db: DB;
@@ -659,6 +660,14 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
     const b = req.body as Partial<{ csv: string }>;
     if (!b.csv || !b.csv.trim()) return reply.code(400).send({ fehler: 'csv erforderlich' });
     return importiereLehrkraefte(db, b.csv);
+  });
+
+  // Noten-Import (historisch): Probelauf (commit=false) oder Übernahme (commit=true).
+  app.post('/api/admin/import/noten', async (req, reply) => {
+    const b = req.body as Partial<{ csv: string; commit: boolean }>;
+    if (!b.csv || !b.csv.trim()) return reply.code(400).send({ fehler: 'csv erforderlich' });
+    const id = ident(req);
+    return importiereNoten(db, b.csv, { akteurId: id.lehrkraftId, commit: b.commit === true });
   });
 
   // --- Wahlpflichtkurse (WPK) verwalten ---
