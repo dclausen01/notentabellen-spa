@@ -381,10 +381,22 @@ export function zeugnisFuerKlasse(
         fach,
         label: namen.get(fach) ?? fach,
         endpunkte: zelle?.endpunkte ?? null,
-        tendenz: zelle?.tendenz ?? null,
+        tendenz: ausweisTendenz(fach, zelle?.tendenz ?? null),
       };
     }),
   }));
+}
+
+/**
+ * Anzeige-Tendenz für das Zeugnis. WPK wird als ganze Komma-Note ausgewiesen
+ * (z. B. „3,0") statt mit Tendenz (3+/3/3-) — nach dem Komma immer 0.
+ */
+function ausweisTendenz(fach: string, tendenz: string | null): string | null {
+  if (fach === 'WPK' && tendenz) {
+    const n = parseInt(tendenz, 10);
+    if (Number.isFinite(n)) return `${n},0`;
+  }
+  return tendenz;
 }
 
 function fachNamen(db: DB): Map<string, string> {
@@ -448,7 +460,7 @@ function abschlusszeugnis(
         fach: `${p.fach}:${p.halbjahr}`,
         label: posLabel(p),
         endpunkte: z?.endpunkte ?? null,
-        tendenz: z?.tendenz ?? null,
+        tendenz: ausweisTendenz(p.fach, z?.tendenz ?? null),
       };
     });
     const pruefungen: ZeugnisZelle[] = pruefPos.map((p) => {
