@@ -5,6 +5,8 @@ import { FakeAuthenticator } from '../src/auth/authenticator.js';
 import { openDb, type DB } from '../src/db/connection.js';
 import { migrate } from '../src/db/migrate.js';
 import { seed } from '../src/seed/seed.js';
+import { speichereImportierteEndnote } from '../src/db/noten.js';
+import { fachId } from '../src/db/lade-eingaben.js';
 import {
   erstelleKlasse,
   erstelleLehrkraft,
@@ -323,6 +325,30 @@ describe('Prüfungsnoten (4. Hj.)', () => {
   it('Eingabemaske LF3 4. Hj. signalisiert eine Prüfungsspalte', async () => {
     const m = (await json('GET', `/api/eingabe?klasseId=${piaKlasse}&fach=LF3&halbjahr=4`, adminToken)).body;
     expect(m.pruefung).toBe(true);
+  });
+});
+
+describe('Übernommene Endnote (Import historischer Noten)', () => {
+  it('LF2-Override wird 1:1 angezeigt und seedet die Folge-Kumulation', async () => {
+    const lf2 = fachId(db, 'LF2');
+    // SPA24a-Werte (Abeler): Hj1-3 importiert.
+    for (const [hj, wert] of [[1, 7.4], [2, 8.3], [3, 8.35]] as const) {
+      speichereImportierteEndnote(db, { schuelerId: schueler, fachId: lf2, halbjahr: hj, wert });
+    }
+    const erg = (await json('GET', `/api/schueler/${schueler}/fach/LF2`, adminToken)).body;
+    expect(erg.find((e: any) => e.halbjahr === 1).endpunkte).toBe(7.4);
+    expect(erg.find((e: any) => e.halbjahr === 1).tendenz).toBe('3-');
+    expect(erg.find((e: any) => e.halbjahr === 3).endpunkte).toBe(8.35);
+
+    // Hj4 als echte Teilnoten (Gesundheit leer) → Kumulation 0,5·8,35 + 0,5·5,4.
+    await json('PUT', '/api/noten/komponente', adminToken, {
+      schuelerId: schueler, komponenteId: lf2KompId('erziehung', 4, piaKlasse), halbjahr: 4, wert: 9, istNa: false,
+    });
+    await json('PUT', '/api/noten/komponente', adminToken, {
+      schuelerId: schueler, komponenteId: lf2KompId('entwicklung', 4, piaKlasse), halbjahr: 4, wert: 9, istNa: false,
+    });
+    const erg2 = (await json('GET', `/api/schueler/${schueler}/fach/LF2`, adminToken)).body;
+    expect(erg2.find((e: any) => e.halbjahr === 4).endpunkte).toBeCloseTo(6.875, 6);
   });
 });
 

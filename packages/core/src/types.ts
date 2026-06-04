@@ -70,6 +70,14 @@ export interface EingabeHalbjahr {
    * PiA einfließt. Wird vom Service aus einem anderen Fach befüllt.
    */
   externerWert?: Wert;
+  /**
+   * Übernommene (historische) Endnote dieses Halbjahres. Ist sie gesetzt, gilt
+   * sie als maßgebliche Endnote — keine Berechnung aus Komponenten/Direktwert —
+   * und dient zugleich als Vorgängerwert für die Kumulation der Folgehalbjahre.
+   * Wird für den Import bereits berechneter Noten (z. B. Altjahrgänge ohne
+   * Teilnoten) genutzt.
+   */
+  importierteEndnote?: Wert;
 }
 
 /** Berechnetes Ergebnis für ein Fach in einem Halbjahr. */

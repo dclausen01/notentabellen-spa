@@ -43,6 +43,7 @@ export function berechneFachFuerSchueler(
   const fId = fachId(db, fachSchluessel);
   const eingaben = ladeEingaben(db, schuelerId, fId, schema);
   injiziereExterneWerte(db, schuelerId, fachSchluessel, bildungsgang, eingaben);
+  injiziereImportierteEndnoten(db, schuelerId, fId, eingaben);
   return berechneFach({ schema, eingaben });
 }
 
@@ -107,6 +108,25 @@ function injiziereExterneWerte(
       const eingabe = eingaben.find((e) => e.halbjahr === ref.halbjahr);
       if (eingabe) eingabe.externerWert = wert;
     }
+  }
+}
+
+/**
+ * Befüllt `importierteEndnote` der Eingaben aus der Tabelle `importierte_endnote`
+ * (übernommene Altnoten). Wo gesetzt, überschreibt sie die Berechnung.
+ */
+function injiziereImportierteEndnoten(
+  db: DB,
+  schuelerId: number,
+  fId: number,
+  eingaben: EingabeHalbjahr[],
+): void {
+  const rows = db
+    .prepare('SELECT halbjahr, wert FROM importierte_endnote WHERE schueler_id = ? AND fach_id = ?')
+    .all(schuelerId, fId) as Array<{ halbjahr: number; wert: number }>;
+  for (const r of rows) {
+    const eingabe = eingaben.find((e) => e.halbjahr === r.halbjahr);
+    if (eingabe) eingabe.importierteEndnote = r.wert;
   }
 }
 

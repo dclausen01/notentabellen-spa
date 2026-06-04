@@ -212,3 +212,37 @@ describe('Kaufmännische Rundung', () => {
     expect(kaufmaennischRunden(5.4)).toBe(5);
   });
 });
+
+describe('Übernommene Endnote (Import historischer Noten)', () => {
+  it('überschreibt die Berechnung und liefert exakt den Importwert', () => {
+    const schema: SchemaHalbjahr[] = [1, 2, 3, 4].map((h) =>
+      direkt(h as 1 | 2 | 3 | 4, 'fortlaufend_50_50'),
+    );
+    // Direktwerte vorhanden, aber importierte Endnote hat Vorrang.
+    const eingaben: EingabeHalbjahr[] = [1, 2, 3, 4].map((h) => ({
+      halbjahr: h as 1 | 2 | 3 | 4,
+      istNa: false,
+      direktwert: 15,
+      importierteEndnote: { 1: 7.4, 2: 8.3, 3: 8.35, 4: 6.875 }[h]!,
+    }));
+    const r = berechneFach({ schema, eingaben });
+    expect(r.map((x) => x.endpunkte)).toEqual([7.4, 8.3, 8.35, 6.875]);
+    expect(r.map((x) => x.tendenz)).toEqual(['3-', '3', '3', '3-']);
+  });
+
+  it('dient als Vorgängerwert für die 50/50-Kumulation des Folgehalbjahres', () => {
+    const schema: SchemaHalbjahr[] = [1, 2, 3, 4].map((h) =>
+      direkt(h as 1 | 2 | 3 | 4, 'fortlaufend_50_50'),
+    );
+    // Hj1-3 importiert (8,35 zuletzt), Hj4 als echte Halbjahresleistung 5,4.
+    const eingaben: EingabeHalbjahr[] = [
+      { halbjahr: 1, istNa: false, importierteEndnote: 7.4 },
+      { halbjahr: 2, istNa: false, importierteEndnote: 8.3 },
+      { halbjahr: 3, istNa: false, importierteEndnote: 8.35 },
+      { halbjahr: 4, istNa: false, direktwert: 5.4 },
+    ];
+    const r = berechneFach({ schema, eingaben });
+    // 0,5·8,35 + 0,5·5,4 = 6,875
+    expect(r.find((x) => x.halbjahr === 4)!.endpunkte).toBeCloseTo(6.875, 9);
+  });
+});
