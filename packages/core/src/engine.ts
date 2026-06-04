@@ -93,6 +93,23 @@ export function berechneFach(input: FachBerechnungInput): ErgebnisHalbjahr[] {
     let endpunkte: number | null;
     let zwischennoteAusgabe: number | null = zw;
 
+    // Übernommene Endnote (Import): hat Vorrang vor jeder Berechnung und wird
+    // als Vorgängerwert für die Kumulation fortgeschrieben.
+    const importiert = eingabe?.importierteEndnote ?? null;
+    if (importiert !== null && importiert !== undefined) {
+      endpunkte = importiert;
+      zwischennoteAusgabe = importiert;
+      vorigeEndpunkte = importiert;
+      ergebnisse.push({
+        halbjahr: hj,
+        aktiv: true,
+        zwischennote: zwischennoteAusgabe,
+        endpunkte,
+        tendenz: tendenzAusEndpunkten(endpunkte, skala),
+      });
+      continue;
+    }
+
     switch (s.kumulationModus) {
       case 'keine':
         endpunkte = zw;

@@ -5,6 +5,8 @@ import { FakeAuthenticator } from '../src/auth/authenticator.js';
 import { openDb, type DB } from '../src/db/connection.js';
 import { migrate } from '../src/db/migrate.js';
 import { seed } from '../src/seed/seed.js';
+import { speichereImportierteEndnote } from '../src/db/noten.js';
+import { fachId } from '../src/db/lade-eingaben.js';
 import {
   erstelleKlasse,
   erstelleLehrkraft,
@@ -323,6 +325,88 @@ describe('Prüfungsnoten (4. Hj.)', () => {
   it('Eingabemaske LF3 4. Hj. signalisiert eine Prüfungsspalte', async () => {
     const m = (await json('GET', `/api/eingabe?klasseId=${piaKlasse}&fach=LF3&halbjahr=4`, adminToken)).body;
     expect(m.pruefung).toBe(true);
+  });
+});
+
+describe('Noten-Import (historisch, CSV)', () => {
+  const csv = (zeilen: string[]) =>
+    'nachname;vorname;klasse;fach;halbjahr;typ;wert\n' + zeilen.join('\n') + '\n';
+
+  it('Probelauf (commit=false) schreibt nichts, meldet aber die geplanten Zeilen', async () => {
+    erstelleSchueler(db, 'Probe', 'Pia', regKlasse);
+    const body = {
+      commit: false,
+      csv: csv([
+        'Probe;Pia;SPA A;LF2;1;endnote;7,4',
+        'Probe;Pia;SPA A;DEUTSCH;1;direkt;9',
+      ]),
+    };
+    const r = await json('POST', '/api/admin/import/noten', adminToken, body);
+    expect(r.body.geplant).toBe(2);
+    expect(r.body.fehler).toBe(0);
+    expect(r.body.geschrieben).toBe(false);
+    // Nichts geschrieben:
+    const sid = (db.prepare("SELECT id FROM schueler WHERE name='Probe'").get() as { id: number }).id;
+    const erg = (await json('GET', `/api/schueler/${sid}/fach/LF2`, adminToken)).body;
+    expect(erg.find((e: any) => e.halbjahr === 1).endpunkte).toBeNull();
+  });
+
+  it('Übernahme (commit=true) schreibt Endnote, Direkt- und Prüfungsnote', async () => {
+    erstelleSchueler(db, 'Probe', 'Pia', regKlasse);
+    const r = await json('POST', '/api/admin/import/noten', adminToken, {
+      commit: true,
+      csv: csv([
+        'Probe;Pia;SPA A;LF2;1;endnote;7,4',
+        'Probe;Pia;SPA A;DEUTSCH;1;direkt;9',
+        'Probe;Pia;SPA A;LF2;4;pruefung;12',
+      ]),
+    });
+    expect(r.body.geschrieben).toBe(true);
+    expect(r.body.geplant).toBe(3);
+    const sid = (db.prepare("SELECT id FROM schueler WHERE name='Probe'").get() as { id: number }).id;
+    const lf2 = (await json('GET', `/api/schueler/${sid}/fach/LF2`, adminToken)).body;
+    expect(lf2.find((e: any) => e.halbjahr === 1).endpunkte).toBe(7.4);
+    const deu = (await json('GET', `/api/schueler/${sid}/fach/DEUTSCH`, adminToken)).body;
+    expect(deu.find((e: any) => e.halbjahr === 1).endpunkte).toBe(9);
+  });
+
+  it('meldet Fehler: unbekannte Klasse/Schüler, Direktnote auf komponentenbasiertem Fach', async () => {
+    erstelleSchueler(db, 'Probe', 'Pia', regKlasse);
+    const r = await json('POST', '/api/admin/import/noten', adminToken, {
+      commit: true,
+      csv: csv([
+        'Niemand;Nina;SPA A;LF1;1;direkt;9', // Schüler fehlt
+        'Probe;Pia;LF2;LF2;1;direkt;9', // Klasse "LF2" gibt es nicht
+        'Probe;Pia;SPA A;LF2;1;direkt;9', // LF2 ist komponentenbasiert -> direkt verboten
+      ]),
+    });
+    expect(r.body.fehler).toBe(3);
+    expect(r.body.geplant).toBe(0);
+    expect(r.body.schuelerFehlend).toContain('Niemand, Nina (SPA A)');
+  });
+});
+
+describe('Übernommene Endnote (Import historischer Noten)', () => {
+  it('LF2-Override wird 1:1 angezeigt und seedet die Folge-Kumulation', async () => {
+    const lf2 = fachId(db, 'LF2');
+    // SPA24a-Werte (Abeler): Hj1-3 importiert.
+    for (const [hj, wert] of [[1, 7.4], [2, 8.3], [3, 8.35]] as const) {
+      speichereImportierteEndnote(db, { schuelerId: schueler, fachId: lf2, halbjahr: hj, wert });
+    }
+    const erg = (await json('GET', `/api/schueler/${schueler}/fach/LF2`, adminToken)).body;
+    expect(erg.find((e: any) => e.halbjahr === 1).endpunkte).toBe(7.4);
+    expect(erg.find((e: any) => e.halbjahr === 1).tendenz).toBe('3-');
+    expect(erg.find((e: any) => e.halbjahr === 3).endpunkte).toBe(8.35);
+
+    // Hj4 als echte Teilnoten (Gesundheit leer) → Kumulation 0,5·8,35 + 0,5·5,4.
+    await json('PUT', '/api/noten/komponente', adminToken, {
+      schuelerId: schueler, komponenteId: lf2KompId('erziehung', 4, piaKlasse), halbjahr: 4, wert: 9, istNa: false,
+    });
+    await json('PUT', '/api/noten/komponente', adminToken, {
+      schuelerId: schueler, komponenteId: lf2KompId('entwicklung', 4, piaKlasse), halbjahr: 4, wert: 9, istNa: false,
+    });
+    const erg2 = (await json('GET', `/api/schueler/${schueler}/fach/LF2`, adminToken)).body;
+    expect(erg2.find((e: any) => e.halbjahr === 4).endpunkte).toBeCloseTo(6.875, 6);
   });
 });
 

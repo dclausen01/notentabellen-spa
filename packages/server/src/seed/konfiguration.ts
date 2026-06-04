@@ -70,6 +70,7 @@ const lf3Komponenten = (hj: Halbjahr): KomponenteCfg[] => {
         rest('kunst', 'Kunst'),
         rest('spiel', 'Spiel'),
         rest('musik', 'Musik'),
+        rest('bewegung', 'Bewegung'),
       ];
     case 2:
     case 3:

@@ -18,6 +18,51 @@ export interface DirektnoteInput {
   geaendertVon?: number | null;
 }
 
+export interface ImportierteEndnoteInput {
+  schuelerId: number;
+  fachId: number;
+  halbjahr: number;
+  wert: number;
+  geaendertVon?: number | null;
+}
+
+/** Speichert/aktualisiert eine übernommene (historische) Endnote (Upsert). */
+export function speichereImportierteEndnote(db: DB, n: ImportierteEndnoteInput): void {
+  const ts = new Date().toISOString();
+  const stmt = db.prepare(
+    `INSERT INTO importierte_endnote
+       (schueler_id, fach_id, halbjahr, wert, geaendert_von, geaendert_am)
+     VALUES (@schuelerId, @fachId, @halbjahr, @wert, @geaendertVon, @ts)
+     ON CONFLICT(schueler_id, fach_id, halbjahr) DO UPDATE SET
+       wert = excluded.wert, geaendert_von = excluded.geaendert_von,
+       geaendert_am = excluded.geaendert_am`,
+  );
+  const tx = db.transaction(() => {
+    stmt.run({
+      schuelerId: n.schuelerId,
+      fachId: n.fachId,
+      halbjahr: n.halbjahr,
+      wert: n.wert,
+      geaendertVon: n.geaendertVon ?? null,
+      ts,
+    });
+    audit(db, n.geaendertVon, 'importierte_endnote_set', 'importierte_endnote', n.fachId, n);
+  });
+  tx();
+}
+
+/** Entfernt eine übernommene Endnote (falls vorhanden). */
+export function loescheImportierteEndnote(
+  db: DB,
+  schuelerId: number,
+  fachId: number,
+  halbjahr: number,
+): void {
+  db.prepare(
+    'DELETE FROM importierte_endnote WHERE schueler_id = ? AND fach_id = ? AND halbjahr = ?',
+  ).run(schuelerId, fachId, halbjahr);
+}
+
 function audit(
   db: DB,
   akteur: number | null | undefined,

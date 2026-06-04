@@ -10,6 +10,7 @@ import type {
   KomponenteKonfig,
   Lehrkraft,
   ImportBericht,
+  NotenImportBericht,
   Rolle,
   Schueler,
   SchemaUebersichtZeile,
@@ -235,6 +236,12 @@ export const adminApi = {
     apiFetch<ImportBericht>('/api/admin/import/lehrkraefte', {
       method: 'POST',
       body: JSON.stringify({ csv }),
+    }),
+
+  importNoten: (csv: string, commit: boolean) =>
+    apiFetch<NotenImportBericht>('/api/admin/import/noten', {
+      method: 'POST',
+      body: JSON.stringify({ csv, commit }),
     }),
 
   wpkKurse: () => apiFetch<WpkKurs[]>('/api/admin/wpk-kurse'),
