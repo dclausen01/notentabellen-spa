@@ -9,7 +9,37 @@
   --danger: #b91c1c;
   --erfolg: #047857;
   --na: #9ca3af;
+  /* Flächen & Akzente (für Light/Dark) */
+  --surface-2: #f1f5f9;
+  --active-bg: #eef2ff;
+  --invalid-bg: #fef2f2;
+  --pruefung-bg: #fff7ed;
+  --pruefung-head-bg: #ffedd5;
+  --pruefung-border: #fb923c;
+  --pruefung-text: #9a3412;
+  color-scheme: light;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0f141a;
+  --card: #1a212b;
+  --text: #e6eaf0;
+  --muted: #9aa4b2;
+  --border: #2c3744;
+  --primary: #4f8cf5;
+  --primary-dark: #3f7ae6;
+  --danger: #f08a8a;
+  --erfolg: #34d39a;
+  --na: #6b7480;
+  --surface-2: #232c37;
+  --active-bg: #25344c;
+  --invalid-bg: #3a2528;
+  --pruefung-bg: #2a2117;
+  --pruefung-head-bg: #38291a;
+  --pruefung-border: #b4631f;
+  --pruefung-text: #f0ad6a;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -32,8 +62,8 @@ button {
 }
 button:hover:not(:disabled) { background: var(--primary-dark); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
-button.secondary { background: #fff; color: var(--primary); }
-button.secondary:hover:not(:disabled) { background: #eef2ff; }
+button.secondary { background: var(--card); color: var(--primary); }
+button.secondary:hover:not(:disabled) { background: var(--active-bg); }
 
 .link-button {
   background: none;
@@ -61,8 +91,17 @@ button.secondary:hover:not(:disabled) { background: #eef2ff; }
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
 }
-.navbar-links a.active { color: var(--primary); background: #eef2ff; font-weight: 600; }
+.navbar-links a.active { color: var(--primary); background: var(--active-bg); font-weight: 600; }
 .navbar-user { display: flex; align-items: center; gap: 0.75rem; color: var(--muted); font-size: 0.9rem; }
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--border);
+  padding: 0.1rem 0.4rem;
+  font-size: 1.05rem;
+  line-height: 1.4;
+  border-radius: 6px;
+}
+.theme-toggle:hover:not(:disabled) { background: var(--surface-2); }
 
 .content { max-width: 1100px; margin: 1.5rem auto; padding: 0 1.5rem; }
 .page h2 { margin-top: 0; }
@@ -93,7 +132,7 @@ input, select {
   padding: 0.5rem 0.6rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--card);
   color: var(--text);
   max-width: 100%;
 }
@@ -135,16 +174,16 @@ input, select {
   padding: 0.45rem 0.6rem;
   text-align: center;
 }
-.tabelle th { background: #f1f5f9; font-weight: 600; font-size: 0.85rem; }
+.tabelle th { background: var(--surface-2); font-weight: 600; font-size: 0.85rem; }
 .tabelle td.name, .tabelle th:first-child { text-align: left; white-space: nowrap; }
 .tabelle.zeugnis td:not(.name) { font-weight: 600; }
 .vorschau-spalte { color: var(--muted); font-variant-numeric: tabular-nums; }
 
 /* Prüfungsblock (4. Hj.) farblich hervorheben */
-.pruefung-spalte { background: #fff7ed; }
-.tabelle th.pruefung-spalte { background: #ffedd5; }
-.pruefung-start { border-left: 2px solid #fb923c; }
-.tabelle th.pruefung-gruppe { text-align: center; color: #9a3412; letter-spacing: 0.03em; }
+.pruefung-spalte { background: var(--pruefung-bg); }
+.tabelle th.pruefung-spalte { background: var(--pruefung-head-bg); }
+.pruefung-start { border-left: 2px solid var(--pruefung-border); }
+.tabelle th.pruefung-gruppe { text-align: center; color: var(--pruefung-text); letter-spacing: 0.03em; }
 
 /* Administration */
 .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
@@ -183,7 +222,7 @@ input, select {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #f1f5f9;
+  background: var(--surface-2);
   border-radius: 6px;
   padding: 0.3rem 0.6rem;
   font-size: 0.9rem;
@@ -198,7 +237,7 @@ input, select {
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
-  background: #f1f5f9;
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
@@ -215,7 +254,7 @@ input, select {
 /* Noteneingabe-Zelle */
 .note-input { display: flex; align-items: center; gap: 0.25rem; justify-content: center; }
 .note-input input { width: 3.5rem; text-align: center; }
-.note-input.invalid input { border-color: var(--danger); background: #fef2f2; }
+.note-input.invalid input { border-color: var(--danger); background: var(--invalid-bg); }
 .note-input.na { color: var(--na); }
 .na-label { font-style: italic; }
 .na-toggle { color: var(--na); }
