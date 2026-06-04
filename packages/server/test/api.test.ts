@@ -393,6 +393,19 @@ describe('Noten-Import (historisch, CSV)', () => {
     expect(wpk.tendenz).toBe('2,0');
   });
 
+  it('Abschlusszeugnis zieht die letzte Note „hochgezogen" ins 4. Hj. (z. B. WiPo aus dem 2. Hj.)', async () => {
+    const sid = erstelleSchueler(db, 'Hoch', 'Heidi', regKlasse);
+    // WiPo nur im 2. Hj. benotet (kumulation 'keine' → im 4. Hj. sonst leer).
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: sid, fach: 'WIPO', halbjahr: 2, wert: 10, istNa: false,
+    });
+    const z = (await json('GET', `/api/zeugnis?klasseId=${regKlasse}&halbjahr=4`, adminToken)).body
+      .find((zz: any) => zz.name === 'Hoch');
+    const wipo = z.faecher.find((f: any) => f.fach === 'WIPO:4');
+    expect(wipo.endpunkte).toBe(10);
+    expect(wipo.tendenz).toBe('2-');
+  });
+
   it('meldet Fehler: unbekannte Klasse/Schüler, Direktnote auf komponentenbasiertem Fach', async () => {
     erstelleSchueler(db, 'Probe', 'Pia', regKlasse);
     const r = await json('POST', '/api/admin/import/noten', adminToken, {
