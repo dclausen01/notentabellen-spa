@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth.js';
+import { aktuellesTheme, setzeTheme, type Theme } from './theme.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { EingabePage } from './pages/EingabePage.js';
 import { ZeugnisPage } from './pages/ZeugnisPage.js';
@@ -19,6 +21,7 @@ function NavBar() {
         {istAdmin && <NavLink to="/admin">Administration</NavLink>}
       </nav>
       <div className="navbar-user">
+        <ThemeToggle />
         <span>
           {ident.name} · <em>{rolleLabel(ident.rolle)}</em>
         </span>
@@ -27,6 +30,27 @@ function NavBar() {
         </button>
       </div>
     </header>
+  );
+}
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState<Theme>(aktuellesTheme());
+  const dunkel = theme === 'dark';
+  function umschalten() {
+    const neu: Theme = dunkel ? 'light' : 'dark';
+    setzeTheme(neu);
+    setTheme(neu);
+  }
+  return (
+    <button
+      type="button"
+      className="theme-toggle"
+      onClick={umschalten}
+      title={dunkel ? 'Heller Modus' : 'Dunkler Modus'}
+      aria-label={dunkel ? 'Heller Modus' : 'Dunkler Modus'}
+    >
+      {dunkel ? '☀️' : '🌙'}
+    </button>
   );
 }
 
