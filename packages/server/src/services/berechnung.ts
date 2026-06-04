@@ -455,7 +455,20 @@ function abschlusszeugnis(
     };
 
     const faecher: ZeugnisZelle[] = positionen.map((p) => {
-      const z = erg(p.fach).find((e) => e.halbjahr === p.halbjahr);
+      const ergebnisse = erg(p.fach);
+      let z = ergebnisse.find((e) => e.halbjahr === p.halbjahr);
+      // Einzelpositions-Fächer (z. B. WiPo/Religion, die im 4. Hj. nicht mehr
+      // unterrichtet werden): letzte vorhandene Note „hochziehen". Mehrfach-
+      // positionen (Praxis) bleiben exakt am jeweiligen Halbjahr.
+      if ((z?.endpunkte ?? null) === null && (anzahlProFach.get(p.fach) ?? 1) === 1) {
+        for (let h = p.halbjahr - 1; h >= 1; h--) {
+          const e = ergebnisse.find((x) => x.halbjahr === h);
+          if (e && e.endpunkte != null) {
+            z = e;
+            break;
+          }
+        }
+      }
       return {
         fach: `${p.fach}:${p.halbjahr}`,
         label: posLabel(p),
