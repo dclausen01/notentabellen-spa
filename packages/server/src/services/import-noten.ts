@@ -5,8 +5,9 @@ import {
   speicherePruefungsnote,
   speichereImportierteEndnote,
 } from '../db/noten.js';
+import { erstelleWpkKurs, listeWpkKurse, speichereWpkKurs } from '../db/admin.js';
 
-export type NotenTyp = 'endnote' | 'direkt' | 'pruefung';
+export type NotenTyp = 'endnote' | 'direkt' | 'pruefung' | 'wpk_kurs';
 
 export interface NotenImportZeile {
   zeile: number;
@@ -16,6 +17,8 @@ export interface NotenImportZeile {
   halbjahr: number | null;
   typ: string;
   wert: number | null;
+  /** Textwert (z. B. WPK-Kursname) für nicht-numerische Typen. */
+  text?: string | null;
   /** Bisher gespeicherter Wert (zur Kontrolle in der Vorschau). */
   bisher: number | null;
   grund?: string;
@@ -65,7 +68,11 @@ export function importiereNoten(
   const rows = parseCsv(csv);
   const zeilen: NotenImportZeile[] = [];
   const fehlend = new Set<string>();
-  const proTyp: Record<NotenTyp, number> = { endnote: 0, direkt: 0, pruefung: 0 };
+  const proTyp: Record<NotenTyp, number> = { endnote: 0, direkt: 0, pruefung: 0, wpk_kurs: 0 };
+
+  // WPK-Kurse (Name → id), case-insensitiv; fehlende werden beim Commit angelegt.
+  const wpkKursMap = new Map<string, number>();
+  for (const kurs of listeWpkKurse(db)) wpkKursMap.set(kurs.name.trim().toLowerCase(), kurs.id);
 
   const klasseStmt = db.prepare('SELECT id, bildungsgang_id FROM klasse WHERE bezeichnung = ?');
   const schuelerStmt = db.prepare(
@@ -105,21 +112,40 @@ export function importiereNoten(
     if (!nachname || !vorname || !klasse || !fach || !halbjahrStr || !typ || !wertStr) {
       return fail('Pflichtfeld fehlt (nachname, vorname, klasse, fach, halbjahr, typ, wert)');
     }
-    if (typ !== 'endnote' && typ !== 'direkt' && typ !== 'pruefung') {
-      return fail(`Unbekannter Typ "${typ}" (erlaubt: endnote, direkt, pruefung)`);
+    if (typ !== 'endnote' && typ !== 'direkt' && typ !== 'pruefung' && typ !== 'wpk_kurs') {
+      return fail(`Unbekannter Typ "${typ}" (erlaubt: endnote, direkt, pruefung, wpk_kurs)`);
     }
     const halbjahr = Number(halbjahrStr);
     if (![1, 2, 3, 4].includes(halbjahr)) return fail('Halbjahr muss 1–4 sein');
-    const wert = zahl(wertStr);
-    if (wert === null || wert < 0 || wert > 15) return fail('Wert muss eine Zahl 0–15 sein', halbjahr);
 
     const k = klasseStmt.get(klasse) as { id: number; bildungsgang_id: number } | undefined;
-    if (!k) return fail(`Klasse "${klasse}" nicht gefunden`, halbjahr, wert);
+    if (!k) return fail(`Klasse "${klasse}" nicht gefunden`, halbjahr);
     const s = schuelerStmt.get(k.id, nachname, vorname) as { id: number } | undefined;
     if (!s) {
       fehlend.add(`${nachname}, ${vorname} (${klasse})`);
-      return fail('Schüler:in in dieser Klasse nicht gefunden', halbjahr, wert);
+      return fail('Schüler:in in dieser Klasse nicht gefunden', halbjahr);
     }
+
+    // WPK-Kurs (Textwert): belegten Kurs zuordnen, fehlende Kurse beim Commit anlegen.
+    if (typ === 'wpk_kurs') {
+      const name = wertStr.trim();
+      const key = name.toLowerCase();
+      const sid = s.id;
+      schreibAktionen.push(() => {
+        let id = wpkKursMap.get(key);
+        if (id === undefined) {
+          id = erstelleWpkKurs(db, name);
+          wpkKursMap.set(key, id);
+        }
+        speichereWpkKurs(db, sid, halbjahr, id);
+      });
+      proTyp.wpk_kurs++;
+      zeilen.push({ zeile: zeileNr, ok: true, schueler: `${nachname}, ${vorname}`, fach: 'WPK', halbjahr, typ, wert: null, text: name, bisher: null });
+      return;
+    }
+
+    const wert = zahl(wertStr);
+    if (wert === null || wert < 0 || wert > 15) return fail('Wert muss eine Zahl 0–15 sein', halbjahr);
     const f = fachStmt.get(fach) as { id: number } | undefined;
     if (!f) return fail(`Fach "${fach}" unbekannt`, halbjahr, wert);
     const schema = schemaStmt.get(f.id, halbjahr, k.bildungsgang_id) as

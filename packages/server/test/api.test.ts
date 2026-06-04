@@ -370,6 +370,29 @@ describe('Noten-Import (historisch, CSV)', () => {
     expect(deu.find((e: any) => e.halbjahr === 1).endpunkte).toBe(9);
   });
 
+  it('WPK: Kurs-Titel-Import legt Kurs an und weist die Zeugnisnote als Komma-Note aus', async () => {
+    erstelleSchueler(db, 'Wahl', 'Wim', regKlasse);
+    const r = await json('POST', '/api/admin/import/noten', adminToken, {
+      commit: true,
+      csv: csv([
+        'Wahl;Wim;SPA A;WPK;1;direkt;11',
+        'Wahl;Wim;SPA A;WPK;2;direkt;11',
+        'Wahl;Wim;SPA A;WPK;1;wpk_kurs;Tierpädagogik',
+        'Wahl;Wim;SPA A;WPK;2;wpk_kurs;U3-Kurs',
+      ]),
+    });
+    expect(r.body.geschrieben).toBe(true);
+    expect(r.body.proTyp.wpk_kurs).toBe(2);
+    // Kurs angelegt + zugeordnet
+    const kurse = (await json('GET', '/api/admin/wpk-kurse', adminToken)).body;
+    expect(kurse.map((k: any) => k.name)).toContain('Tierpädagogik');
+    // Zeugnis (2. Hj.): WPK-Ø 11 Punkte → Note 2 → „2,0"
+    const z = (await json('GET', `/api/zeugnis?klasseId=${regKlasse}&halbjahr=2`, adminToken)).body
+      .find((zz: any) => zz.name === 'Wahl');
+    const wpk = z.faecher.find((f: any) => f.fach === 'WPK');
+    expect(wpk.tendenz).toBe('2,0');
+  });
+
   it('meldet Fehler: unbekannte Klasse/Schüler, Direktnote auf komponentenbasiertem Fach', async () => {
     erstelleSchueler(db, 'Probe', 'Pia', regKlasse);
     const r = await json('POST', '/api/admin/import/noten', adminToken, {
