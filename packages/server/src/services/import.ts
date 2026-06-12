@@ -1,7 +1,7 @@
 import type { DB } from '../db/connection.js';
 import { erstelleSchueler, setzeKlassenleitung, type Rolle } from '../db/stammdaten.js';
 import { upsertLehrkraft } from '../db/admin.js';
-import { parseCsv } from './csv.js';
+import { parseCsv, feld } from './csv.js';
 
 export interface ImportBericht {
   angelegt: number;
@@ -11,15 +11,6 @@ export interface ImportBericht {
 
 function leererBericht(): ImportBericht {
   return { angelegt: 0, uebersprungen: 0, fehler: [] };
-}
-
-/** Liest einen Wert aus mehreren möglichen Spaltennamen (Alias-Unterstützung). */
-function feld(row: Record<string, string>, ...namen: string[]): string {
-  for (const n of namen) {
-    const v = row[n];
-    if (v !== undefined && v !== '') return v;
-  }
-  return '';
 }
 
 /**

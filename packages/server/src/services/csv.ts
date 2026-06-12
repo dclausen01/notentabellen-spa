@@ -29,6 +29,21 @@ export function parseCsv(text: string): Record<string, string>[] {
     });
 }
 
+/** Liest einen Wert aus mehreren möglichen Spaltennamen (Alias-Unterstützung). */
+export function feld(row: Record<string, string>, ...namen: string[]): string {
+  for (const n of namen) {
+    const v = row[n];
+    if (v !== undefined && v !== '') return v;
+  }
+  return '';
+}
+
+/** Parst eine deutsche Komma-/Punktzahl ("7,4" → 7.4) oder null bei Unsinn. */
+export function zahl(s: string): number | null {
+  const n = Number(s.replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
 function parseRecords(text: string, delimiter: string): string[][] {
   const rows: string[][] = [];
   let feld = '';

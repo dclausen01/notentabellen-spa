@@ -62,6 +62,7 @@ import {
 import { baueEingabemaske } from '../services/eingabemaske.js';
 import { faecherFuerKlasse } from '../services/faecher.js';
 import { exportDateiname, zeugnisAlsXlsx } from '../services/export.js';
+import { notenbekanntgabeDocx } from '../services/notenbekanntgabe.js';
 import { importiereLehrkraefte, importiereSchueler } from '../services/import.js';
 import { importiereNoten } from '../services/import-noten.js';
 
@@ -472,6 +473,31 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
       return reply.send(buf);
     } catch (e) {
       return reply.code(404).send({ fehler: (e as Error).message });
+    }
+  });
+
+  // Notenbekanntgabeblätter (4. Hj.) als Word-Serienbrief (ein Blatt je Schüler:in).
+  app.get('/api/zeugnis/notenbekanntgabe', async (req, reply) => {
+    const q = req.query as { klasseId?: string };
+    const klasseId = zahl(q.klasseId);
+    if (klasseId === undefined) return reply.code(400).send({ fehler: 'klasseId erforderlich' });
+    const me = ident(req);
+    if (me.rolle !== 'admin' && !istKlassenleitung(db, me.lehrkraftId, klasseId)) return verboten(reply);
+    const k = db
+      .prepare('SELECT bezeichnung, schuljahr FROM klasse WHERE id = ?')
+      .get(klasseId) as { bezeichnung: string; schuljahr: string } | undefined;
+    if (!k) return reply.code(404).send({ fehler: 'Klasse nicht gefunden' });
+    try {
+      const buf = await notenbekanntgabeDocx(db, klasseId);
+      const slug = `${k.bezeichnung}_${k.schuljahr}`.replace(/[^\w.-]+/g, '_');
+      reply.header(
+        'content-type',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      );
+      reply.header('content-disposition', `attachment; filename="Notenbekanntgabe_${slug}.docx"`);
+      return reply.send(buf);
+    } catch (e) {
+      return reply.code(500).send({ fehler: (e as Error).message });
     }
   });
 

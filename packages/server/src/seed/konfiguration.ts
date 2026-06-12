@@ -35,6 +35,8 @@ export interface SchemaCfg {
   pruefungVerrechnen?: boolean;
   /** Diese (Fach,Halbjahr)-Position erscheint im Abschlusszeugnis (4. Hj.). */
   abschlussZeigen?: boolean;
+  /** Im Zeugnis als ganze Komma-Note („3,0") statt mit Tendenz ausweisen (WPK). */
+  kommaNote?: boolean;
 }
 
 export type BildungsgangSchluessel = 'SPA_REGULAR' | 'SPA_PIA';
@@ -264,6 +266,7 @@ function wpkSchemata(): SchemaCfg[] {
         kumulationModus: hj === 2 ? 'mittelwert_halbjahre' : 'keine',
         deaktivierbar: false,
         aktiv,
+        kommaNote: true, // WPK wird als ganze Komma-Note ausgewiesen.
         ...(hj === 2 ? { mittelwertHalbjahre: [1, 2] as Halbjahr[], abschlussZeigen: true } : {}),
         komponenten: [],
       });
