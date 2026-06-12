@@ -60,12 +60,13 @@ export function ZeugnisPage() {
     }
   }
 
+  const aktiveKlasse = klassen.find((k) => k.id === klasseId);
   const faecher = zeilen[0]?.faecher ?? [];
   const pruefungen = zeilen[0]?.pruefungen ?? [];
 
   return (
     <div className="page">
-      <h2>Zeugnisansicht</h2>
+      <h2>Notenübersicht</h2>
       <div className="filterleiste">
         <label>
           Klasse
@@ -102,11 +103,12 @@ export function ZeugnisPage() {
             Als Excel exportieren
           </button>
         )}
-        {klasseId != null && zeilen.length > 0 && halbjahr === 4 && (
+        {klasseId != null && zeilen.length > 0 && aktiveKlasse?.darfNotenbekanntgabe && (
           <button
             type="button"
             className="secondary"
             onClick={() => void herunterladen(() => api.notenbekanntgabe(klasseId))}
+            title="Abschluss-Notenbekanntgabe (nur Klassenleitung)"
           >
             Notenbekanntgabe (Word)
           </button>

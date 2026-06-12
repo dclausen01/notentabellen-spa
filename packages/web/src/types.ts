@@ -11,6 +11,8 @@ export interface Klasse {
   bezeichnung: string;
   schuljahr: string;
   bildungsgang: string;
+  /** Darf die aktuelle Lehrkraft die Notenbekanntgabe dieser Klasse erstellen (Klassenleitung/Admin)? */
+  darfNotenbekanntgabe?: boolean;
 }
 
 export interface FachOption {

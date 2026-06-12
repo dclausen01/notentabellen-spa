@@ -135,3 +135,22 @@ describe('Klassenleitung: liest alle Fächer + Zeugnis der eigenen Klasse', () =
     expect(res.statusCode).toBe(200);
   });
 });
+
+describe('Notenbekanntgabe: nur Klassenleitung darf erstellen', () => {
+  it('Fachlehrkraft (kein KL) → darfNotenbekanntgabe=false und 403 am Endpoint', async () => {
+    const token = await login('fachlk');
+    const klassen = JSON.parse((await req('GET', '/api/klassen', token)).body);
+    expect(klassen.find((k: { id: number }) => k.id === klasse).darfNotenbekanntgabe).toBe(false);
+    const res = await req('GET', `/api/zeugnis/notenbekanntgabe?klasseId=${klasse}`, token);
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('Klassenleitung → darfNotenbekanntgabe=true und erhält das Word-Dokument', async () => {
+    const token = await login('kl');
+    const klassen = JSON.parse((await req('GET', '/api/klassen', token)).body);
+    expect(klassen.find((k: { id: number }) => k.id === klasse).darfNotenbekanntgabe).toBe(true);
+    const res = await req('GET', `/api/zeugnis/notenbekanntgabe?klasseId=${klasse}`, token);
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('wordprocessingml');
+  });
+});

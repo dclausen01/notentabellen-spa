@@ -176,9 +176,15 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
 
   // --- Stammdaten (nach Sichtbarkeit gefiltert) ---
   app.get('/api/klassen', async (req) => {
-    const ids = sichtbareKlassenIds(db, ident(req));
+    const me = ident(req);
+    const ids = sichtbareKlassenIds(db, me);
     const alle = listeKlassen(db);
-    return ids === 'alle' ? alle : alle.filter((k) => ids.includes(k.id));
+    const sichtbar = ids === 'alle' ? alle : alle.filter((k) => ids.includes(k.id));
+    // Notenbekanntgabe dürfen nur Klassenleitungen (bzw. Admin) der Klasse erstellen.
+    return sichtbar.map((k) => ({
+      ...k,
+      darfNotenbekanntgabe: me.rolle === 'admin' || istKlassenleitung(db, me.lehrkraftId, k.id),
+    }));
   });
 
   app.get('/api/klassen/:id/schueler', async (req, reply) => {

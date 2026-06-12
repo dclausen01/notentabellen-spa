@@ -17,7 +17,7 @@ function NavBar() {
       <div className="navbar-brand">Notenverwaltung SPA</div>
       <nav className="navbar-links">
         <NavLink to="/eingabe">Noteneingabe</NavLink>
-        {darfZeugnis && <NavLink to="/zeugnis">Zeugnis</NavLink>}
+        {darfZeugnis && <NavLink to="/zeugnis">Notenübersicht</NavLink>}
         {istAdmin && <NavLink to="/admin">Administration</NavLink>}
       </nav>
       <div className="navbar-user">
