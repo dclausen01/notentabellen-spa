@@ -8,6 +8,7 @@ import { seed } from '../src/seed/seed.js';
 import { speichereImportierteEndnote } from '../src/db/noten.js';
 import { fachId } from '../src/db/lade-eingaben.js';
 import { berechneFachFuerSchueler } from '../src/services/berechnung.js';
+import { notenbekanntgabeDaten } from '../src/services/notenbekanntgabe.js';
 import {
   erstelleKlasse,
   erstelleLehrkraft,
@@ -420,6 +421,33 @@ describe('Noten-Import (historisch, CSV)', () => {
     expect(r.body.fehler).toBe(3);
     expect(r.body.geplant).toBe(0);
     expect(r.body.schuelerFehlend).toContain('Niemand, Nina (SPA A)');
+  });
+});
+
+describe('Notenbekanntgabe (4. Hj.)', () => {
+  it('zeigt bei Englisch die Vornote (nicht die FHR-verrechnete) und die Prüfung separat', async () => {
+    // Englisch 4. Hj.: Vornote 10 Punkte (= „2-"), FHR-Prüfung 5 Punkte (= „4").
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: schueler, fach: 'ENGLISCH', halbjahr: 4, wert: 10, istNa: false,
+    });
+    await json('PUT', '/api/noten/pruefung', adminToken, {
+      schuelerId: schueler, fach: 'ENGLISCH', halbjahr: 4, wert: 5, istNa: false,
+    });
+    // Deutsch-Vornote + Deutsch-Prüfung (3SA2).
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: schueler, fach: 'DEUTSCH', halbjahr: 4, wert: 11, istNa: false,
+    });
+    await json('PUT', '/api/noten/pruefung', adminToken, {
+      schuelerId: schueler, fach: 'DEUTSCH', halbjahr: 4, wert: 15, istNa: false,
+    });
+
+    const daten = notenbekanntgabeDaten(db, piaKlasse);
+    const f = daten.find((d) => d.felder.Name === 'Mustermann')!.felder;
+    // Verrechnete Endnote wäre 0,6·10 + 0,4·5 = 8 → „3". Auf dem Blatt aber die Vornote „2-".
+    expect(f.Englisch).toBe('2-');
+    expect(f.ESA2).toBe('4'); // FHR-Prüfung separat
+    expect(f.Deutsch).toBe('2'); // 11 Punkte
+    expect(f['3SA2']).toBe('1+'); // 15 Punkte
   });
 });
 

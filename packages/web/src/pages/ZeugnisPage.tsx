@@ -43,11 +43,10 @@ export function ZeugnisPage() {
     }
   }
 
-  async function exportiere() {
-    if (klasseId == null) return;
+  async function herunterladen(laden: () => Promise<{ blob: Blob; dateiname: string }>) {
     setFehler(null);
     try {
-      const { blob, dateiname } = await api.zeugnisExport(klasseId, halbjahr);
+      const { blob, dateiname } = await laden();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -57,7 +56,7 @@ export function ZeugnisPage() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e) {
-      setFehler(e instanceof ApiError ? e.message : 'Export fehlgeschlagen');
+      setFehler(e instanceof ApiError ? e.message : 'Download fehlgeschlagen');
     }
   }
 
@@ -96,8 +95,20 @@ export function ZeugnisPage() {
           </button>
         )}
         {klasseId != null && zeilen.length > 0 && (
-          <button type="button" onClick={() => void exportiere()}>
+          <button
+            type="button"
+            onClick={() => void herunterladen(() => api.zeugnisExport(klasseId, halbjahr))}
+          >
             Als Excel exportieren
+          </button>
+        )}
+        {klasseId != null && zeilen.length > 0 && halbjahr === 4 && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => void herunterladen(() => api.notenbekanntgabe(klasseId))}
+          >
+            Notenbekanntgabe (Word)
           </button>
         )}
       </div>

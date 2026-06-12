@@ -149,6 +149,9 @@ export const api = {
   zeugnisExport: (klasseId: number, halbjahr: number) =>
     apiDownload(`/api/zeugnis/export?klasseId=${klasseId}&halbjahr=${halbjahr}`),
 
+  notenbekanntgabe: (klasseId: number) =>
+    apiDownload(`/api/zeugnis/notenbekanntgabe?klasseId=${klasseId}`),
+
   klassenKomponenten: (klasseId: number, fach: string) =>
     apiFetch<KomponenteKonfig[]>(
       `/api/klassen/${klasseId}/komponenten?fach=${encodeURIComponent(fach)}`,
