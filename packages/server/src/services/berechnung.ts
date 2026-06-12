@@ -94,16 +94,25 @@ function injiziereExterneWerte(
   // Fachs/Halbjahres fließt als externer Wert ein (0,6·Vornote + 0,4·Prüfung).
   const pruefRefs = db
     .prepare(
-      `SELECT bs.halbjahr FROM bewertungsschema bs
+      `SELECT bs.halbjahr, bs.gewicht_aktuell AS gA, bs.gewicht_extern AS gE
+         FROM bewertungsschema bs
          JOIN fach f ON f.id = bs.fach_id
          JOIN bildungsgang bg ON bg.id = bs.bildungsgang_id
         WHERE f.schluessel = ? AND bg.schluessel = ?
           AND bs.aktiv = 1 AND bs.pruefung_verrechnen = 1`,
     )
-    .all(fachSchluessel, bildungsgang) as Array<{ halbjahr: number }>;
+    .all(fachSchluessel, bildungsgang) as Array<{ halbjahr: number; gA: number | null; gE: number | null }>;
   if (pruefRefs.length > 0) {
     const fId = fachId(db, fachSchluessel);
     for (const ref of pruefRefs) {
+      // Ohne gesetzte Gewichte würde der Engine-Externmodus nicht greifen und die
+      // Prüfung still ignoriert. Lieber laut scheitern als falsch rechnen.
+      if (ref.gA == null || ref.gE == null) {
+        throw new Error(
+          `Schema-Fehler: ${fachSchluessel} (${bildungsgang}) ${ref.halbjahr}. Hj. hat pruefung_verrechnen=1, ` +
+            `aber gewicht_aktuell/gewicht_extern fehlen.`,
+        );
+      }
       const wert = ladePruefungsnote(db, schuelerId, fId, ref.halbjahr);
       const eingabe = eingaben.find((e) => e.halbjahr === ref.halbjahr);
       if (eingabe) eingabe.externerWert = wert;

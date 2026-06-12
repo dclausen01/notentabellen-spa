@@ -245,4 +245,19 @@ describe('Übernommene Endnote (Import historischer Noten)', () => {
     // 0,5·8,35 + 0,5·5,4 = 6,875
     expect(r.find((x) => x.halbjahr === 4)!.endpunkte).toBeCloseTo(6.875, 9);
   });
+
+  it('fließt in den Mittelwert (mittelwert_halbjahre) ein, wenn ein Vorhalbjahr importiert ist', () => {
+    // WPK-Muster: Hj1 importiert (9), Hj2 mittelt Hj1+Hj2 mit eigener Leistung 7.
+    const schema: SchemaHalbjahr[] = [
+      direkt(1, 'keine', { aktiv: true }),
+      direkt(2, 'mittelwert_halbjahre', { aktiv: true, mittelwertHalbjahre: [1, 2] }),
+    ];
+    const eingaben: EingabeHalbjahr[] = [
+      { halbjahr: 1, istNa: false, importierteEndnote: 9 },
+      { halbjahr: 2, istNa: false, direktwert: 7 },
+    ];
+    const r = berechneFach({ schema, eingaben });
+    // (9 + 7) / 2 = 8 — der Import darf nicht still verschluckt werden.
+    expect(r.find((x) => x.halbjahr === 2)!.endpunkte).toBe(8);
+  });
 });

@@ -7,6 +7,7 @@ import { migrate } from '../src/db/migrate.js';
 import { seed } from '../src/seed/seed.js';
 import { speichereImportierteEndnote } from '../src/db/noten.js';
 import { fachId } from '../src/db/lade-eingaben.js';
+import { berechneFachFuerSchueler } from '../src/services/berechnung.js';
 import {
   erstelleKlasse,
   erstelleLehrkraft,
@@ -419,6 +420,17 @@ describe('Noten-Import (historisch, CSV)', () => {
     expect(r.body.fehler).toBe(3);
     expect(r.body.geplant).toBe(0);
     expect(r.body.schuelerFehlend).toContain('Niemand, Nina (SPA A)');
+  });
+});
+
+describe('Robustheit: pruefung_verrechnen erfordert Gewichte', () => {
+  it('scheitert laut, wenn die Gewichte fehlen (statt die Prüfung still zu ignorieren)', () => {
+    db.prepare(
+      `UPDATE bewertungsschema SET gewicht_aktuell = NULL, gewicht_extern = NULL
+        WHERE fach_id = (SELECT id FROM fach WHERE schluessel = 'ENGLISCH') AND halbjahr = 4
+          AND bildungsgang_id = (SELECT bildungsgang_id FROM klasse WHERE id = ?)`,
+    ).run(piaKlasse);
+    expect(() => berechneFachFuerSchueler(db, schueler, 'ENGLISCH')).toThrow(/pruefung_verrechnen/);
   });
 });
 

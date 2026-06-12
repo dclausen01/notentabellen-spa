@@ -73,11 +73,15 @@ export function berechneFach(input: FachBerechnungInput): ErgebnisHalbjahr[] {
   const eingabeFuer = (hj: Halbjahr) =>
     input.eingaben.find((e) => e.halbjahr === hj);
 
-  // 1. Pass: Zwischennoten je Halbjahr.
+  // 1. Pass: Zwischennoten je Halbjahr. Eine übernommene Endnote gilt als
+  // Zwischennote dieses Halbjahres, damit sie auch von 'mittelwert_halbjahre'
+  // und vom klassischen 'gewichtet_vorgaenger' (lesen aus `zwischen`) gesehen wird.
   const zwischen = new Map<Halbjahr, number | null>();
   for (const hj of HALBJAHRE) {
     const s = schemaFuer(input.schema, hj);
-    zwischen.set(hj, s ? berechneZwischennote(s, eingabeFuer(hj)) : null);
+    const e = eingabeFuer(hj);
+    const importiert = e?.importierteEndnote ?? null;
+    zwischen.set(hj, importiert ?? (s ? berechneZwischennote(s, e) : null));
   }
 
   // 2. Pass: Kumulation → Endpunkte.
