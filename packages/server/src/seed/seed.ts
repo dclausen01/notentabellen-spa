@@ -50,11 +50,11 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
          (fach_id, bildungsgang_id, halbjahr, halbjahr_modus, kumulation_modus,
           deaktivierbar, aktiv, mittelwert_halbjahre,
           gewicht_aktuell, gewicht_extern, extern_fach, extern_halbjahr,
-          pruefung, pruefung_verrechnen, abschluss_zeigen)
+          pruefung, pruefung_verrechnen, abschluss_zeigen, komma_note)
        VALUES (@fachId, @bgId, @halbjahr, @halbjahrModus, @kumulationModus,
                @deaktivierbar, @aktiv, @mittelwert,
                @gewichtAktuell, @gewichtExtern, @externFach, @externHalbjahr,
-               @pruefung, @pruefungVerrechnen, @abschlussZeigen)
+               @pruefung, @pruefungVerrechnen, @abschlussZeigen, @kommaNote)
        ON CONFLICT(fach_id, bildungsgang_id, halbjahr) DO UPDATE SET
          halbjahr_modus = excluded.halbjahr_modus,
          kumulation_modus = excluded.kumulation_modus,
@@ -67,7 +67,8 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
          extern_halbjahr = excluded.extern_halbjahr,
          pruefung = excluded.pruefung,
          pruefung_verrechnen = excluded.pruefung_verrechnen,
-         abschluss_zeigen = excluded.abschluss_zeigen`,
+         abschluss_zeigen = excluded.abschluss_zeigen,
+         komma_note = excluded.komma_note`,
     );
     const schemaId = db.prepare(
       'SELECT id FROM bewertungsschema WHERE fach_id = ? AND bildungsgang_id = ? AND halbjahr = ?',
@@ -106,6 +107,7 @@ export function seed(db: DB, konfig: Konfiguration = baueKonfiguration()): void 
         pruefung: s.pruefung ? 1 : 0,
         pruefungVerrechnen: s.pruefungVerrechnen ? 1 : 0,
         abschlussZeigen: s.abschlussZeigen ? 1 : 0,
+        kommaNote: s.kommaNote ? 1 : 0,
       });
       const sid = (schemaId.get(fid, bid, s.halbjahr) as { id: number }).id;
       s.komponenten.forEach((k, i) => {

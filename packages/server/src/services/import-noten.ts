@@ -1,5 +1,5 @@
 import type { DB } from '../db/connection.js';
-import { parseCsv } from './csv.js';
+import { parseCsv, feld, zahl } from './csv.js';
 import {
   speichereDirektnote,
   speicherePruefungsnote,
@@ -9,6 +9,7 @@ import { erstelleWpkKurs, listeWpkKurse, speichereWpkKurs } from '../db/admin.js
 
 export type NotenTyp = 'endnote' | 'direkt' | 'pruefung' | 'wpk_kurs';
 
+/** Eine abgelehnte Zeile (nur Fehler werden zurückgegeben — gültige Werte nur als Zähler). */
 export interface NotenImportZeile {
   zeile: number;
   ok: boolean;
@@ -17,15 +18,11 @@ export interface NotenImportZeile {
   halbjahr: number | null;
   typ: string;
   wert: number | null;
-  /** Textwert (z. B. WPK-Kursname) für nicht-numerische Typen. */
-  text?: string | null;
-  /** Bisher gespeicherter Wert (zur Kontrolle in der Vorschau). */
-  bisher: number | null;
   grund?: string;
 }
 
 export interface NotenImportBericht {
-  /** Gültige, schreibbare Zeilen. */
+  /** Anzahl gültiger, schreibbarer Werte. */
   geplant: number;
   fehler: number;
   proTyp: Record<NotenTyp, number>;
@@ -34,20 +31,6 @@ export interface NotenImportBericht {
   /** true, wenn tatsächlich geschrieben wurde. */
   geschrieben: boolean;
   zeilen: NotenImportZeile[];
-}
-
-/** Liest einen Wert aus mehreren möglichen Spaltennamen. */
-function feld(row: Record<string, string>, ...namen: string[]): string {
-  for (const n of namen) {
-    const v = row[n];
-    if (v !== undefined && v !== '') return v;
-  }
-  return '';
-}
-
-function zahl(s: string): number | null {
-  const n = Number(s.replace(',', '.'));
-  return Number.isFinite(n) ? n : null;
 }
 
 /**
@@ -84,15 +67,6 @@ export function importiereNoten(
     `SELECT halbjahr_modus, pruefung FROM bewertungsschema
       WHERE fach_id = ? AND halbjahr = ? AND bildungsgang_id = ?`,
   );
-  const direktVorhanden = db.prepare(
-    'SELECT wert FROM fachnote_direkt WHERE schueler_id = ? AND fach_id = ? AND halbjahr = ?',
-  );
-  const pruefVorhanden = db.prepare(
-    'SELECT wert FROM pruefungsnote WHERE schueler_id = ? AND fach_id = ? AND halbjahr = ?',
-  );
-  const endnoteVorhanden = db.prepare(
-    'SELECT wert FROM importierte_endnote WHERE schueler_id = ? AND fach_id = ? AND halbjahr = ?',
-  );
 
   const schreibAktionen: Array<() => void> = [];
 
@@ -107,7 +81,7 @@ export function importiereNoten(
     const wertStr = feld(row, 'wert', 'note');
 
     const fail = (grund: string, halbjahr: number | null = null, wert: number | null = null) =>
-      zeilen.push({ zeile: zeileNr, ok: false, schueler: `${nachname}, ${vorname}`, fach, halbjahr, typ, wert, bisher: null, grund });
+      zeilen.push({ zeile: zeileNr, ok: false, schueler: `${nachname}, ${vorname}`, fach, halbjahr, typ, wert, grund });
 
     if (!nachname || !vorname || !klasse || !fach || !halbjahrStr || !typ || !wertStr) {
       return fail('Pflichtfeld fehlt (nachname, vorname, klasse, fach, halbjahr, typ, wert)');
@@ -140,7 +114,6 @@ export function importiereNoten(
         speichereWpkKurs(db, sid, halbjahr, id);
       });
       proTyp.wpk_kurs++;
-      zeilen.push({ zeile: zeileNr, ok: true, schueler: `${nachname}, ${vorname}`, fach: 'WPK', halbjahr, typ, wert: null, text: name, bisher: null });
       return;
     }
 
@@ -154,34 +127,31 @@ export function importiereNoten(
     if (!schema) return fail(`Fach ${fach} hat im ${halbjahr}. Hj. kein Schema für diesen Bildungsgang`, halbjahr, wert);
 
     // Typ-spezifische Validierung + Zielbestimmung
-    let bisher: number | null = null;
     if (typ === 'direkt') {
       if (schema.halbjahr_modus !== 'direkt') {
         return fail(`Fach ${fach} ist im ${halbjahr}. Hj. komponentenbasiert — Direktnote nicht möglich (nutze typ=endnote)`, halbjahr, wert);
       }
-      bisher = (direktVorhanden.get(s.id, f.id, halbjahr) as { wert: number } | undefined)?.wert ?? null;
       schreibAktionen.push(() =>
         speichereDirektnote(db, { schuelerId: s.id, fachId: f.id, halbjahr, wert, istNa: false, geaendertVon: opts.akteurId ?? null }),
       );
     } else if (typ === 'pruefung') {
       if (schema.pruefung !== 1) return fail(`Fach ${fach} hat im ${halbjahr}. Hj. keine Prüfung`, halbjahr, wert);
-      bisher = (pruefVorhanden.get(s.id, f.id, halbjahr) as { wert: number } | undefined)?.wert ?? null;
       schreibAktionen.push(() =>
         speicherePruefungsnote(db, { schuelerId: s.id, fachId: f.id, halbjahr, wert, istNa: false, geaendertVon: opts.akteurId ?? null }),
       );
     } else {
       // endnote (Override)
-      bisher = (endnoteVorhanden.get(s.id, f.id, halbjahr) as { wert: number } | undefined)?.wert ?? null;
       schreibAktionen.push(() =>
         speichereImportierteEndnote(db, { schuelerId: s.id, fachId: f.id, halbjahr, wert, geaendertVon: opts.akteurId ?? null }),
       );
     }
 
     proTyp[typ]++;
-    zeilen.push({ zeile: zeileNr, ok: true, schueler: `${nachname}, ${vorname}`, fach, halbjahr, typ, wert, bisher });
   });
 
-  const geplant = zeilen.filter((z) => z.ok).length;
+  // Nur Fehlerzeilen werden zurückgegeben; die Summe der proTyp-Zähler ist die
+  // Zahl der gültigen (geplanten) Werte.
+  const geplant = (Object.values(proTyp) as number[]).reduce((a, b) => a + b, 0);
   let geschrieben = false;
   if (opts.commit && geplant > 0) {
     db.transaction(() => {
@@ -192,7 +162,7 @@ export function importiereNoten(
 
   return {
     geplant,
-    fehler: zeilen.length - geplant,
+    fehler: zeilen.length,
     proTyp,
     schuelerFehlend: [...fehlend].sort(),
     geschrieben,

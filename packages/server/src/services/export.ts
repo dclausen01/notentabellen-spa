@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import type { DB } from '../db/connection.js';
 import { listeFaecher } from '../db/admin.js';
-import { zeugnisFuerKlasse } from './berechnung.js';
+import { zeugnisFuerKlasse, type ZeugnisZelle } from './berechnung.js';
 
 interface KlasseInfo {
   bezeichnung: string;
@@ -68,7 +68,7 @@ export async function zeugnisAlsXlsx(
 
   const baueBlatt = (
     name: string,
-    wert: (sp: Spalte, zeile: (typeof zeilen)[number]) => string | number | null,
+    wert: (zelle: ZeugnisZelle) => string | number | null,
   ): void => {
     const ws = wb.addWorksheet(name);
     const spaltenZahl = 2 + spalten.length;
@@ -93,7 +93,10 @@ export async function zeugnisAlsXlsx(
       const row = ws.addRow([
         z.name,
         z.vorname,
-        ...spalten.map((s) => (zelleVon(z, s) ? wert(s, z) : null)),
+        ...spalten.map((s) => {
+          const zelle = zelleVon(z, s);
+          return zelle ? wert(zelle) : null;
+        }),
       ]);
       row.alignment = { horizontal: 'center' };
       row.getCell(1).alignment = { horizontal: 'left' };
@@ -109,11 +112,10 @@ export async function zeugnisAlsXlsx(
     ws.views = [{ state: 'frozen', xSplit: 2, ySplit: 3 }];
   };
 
-  baueBlatt('Tendenznoten', (sp, z) => zelleVon(z, sp)?.tendenz ?? '–');
-  baueBlatt('Endpunkte', (sp, z) => {
-    const zelle = zelleVon(z, sp);
-    return zelle?.endpunkte != null ? Number(zelle.endpunkte.toFixed(2)) : null;
-  });
+  baueBlatt('Tendenznoten', (zelle) => zelle.tendenz ?? '–');
+  baueBlatt('Endpunkte', (zelle) =>
+    zelle.endpunkte != null ? Number(zelle.endpunkte.toFixed(2)) : null,
+  );
 
   const buffer = await wb.xlsx.writeBuffer();
   return Buffer.from(buffer);

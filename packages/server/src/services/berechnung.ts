@@ -367,6 +367,7 @@ export function zeugnisFuerKlasse(
   if (halbjahr === 4) return abschlusszeugnis(db, bg.schluessel, schueler);
 
   const namen = fachNamen(db);
+  const komma = kommaNoteFaecher(db, bg.schluessel);
   const faecher = (
     db
       .prepare(
@@ -390,22 +391,36 @@ export function zeugnisFuerKlasse(
         fach,
         label: namen.get(fach) ?? fach,
         endpunkte: zelle?.endpunkte ?? null,
-        tendenz: ausweisTendenz(fach, zelle?.tendenz ?? null),
+        tendenz: ausweisTendenz(komma.has(fach), zelle?.tendenz ?? null),
       };
     }),
   }));
 }
 
 /**
- * Anzeige-Tendenz für das Zeugnis. WPK wird als ganze Komma-Note ausgewiesen
- * (z. B. „3,0") statt mit Tendenz (3+/3/3-) — nach dem Komma immer 0.
+ * Anzeige-Tendenz für das Zeugnis. Fächer mit Schema-Flag `komma_note` (z. B.
+ * WPK) werden als ganze Komma-Note ausgewiesen (z. B. „3,0") statt mit Tendenz
+ * (3+/3/3-) — nach dem Komma immer 0.
  */
-function ausweisTendenz(fach: string, tendenz: string | null): string | null {
-  if (fach === 'WPK' && tendenz) {
+function ausweisTendenz(istKomma: boolean, tendenz: string | null): string | null {
+  if (istKomma && tendenz) {
     const n = parseInt(tendenz, 10);
     if (Number.isFinite(n)) return `${n},0`;
   }
   return tendenz;
+}
+
+/** Fächer eines Bildungsgangs, die als Komma-Note ausgewiesen werden. */
+function kommaNoteFaecher(db: DB, bildungsgang: string): Set<string> {
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT f.schluessel FROM bewertungsschema bs
+         JOIN fach f ON f.id = bs.fach_id
+         JOIN bildungsgang bg ON bg.id = bs.bildungsgang_id
+        WHERE bg.schluessel = ? AND bs.komma_note = 1`,
+    )
+    .all(bildungsgang) as { schluessel: string }[];
+  return new Set(rows.map((r) => r.schluessel));
 }
 
 function fachNamen(db: DB): Map<string, string> {
@@ -427,6 +442,7 @@ function abschlusszeugnis(
   schueler: { id: number; name: string; vorname: string }[],
 ): ZeugnisZeile[] {
   const namen = fachNamen(db);
+  const komma = kommaNoteFaecher(db, bildungsgang);
 
   const positionen = db
     .prepare(
@@ -455,6 +471,8 @@ function abschlusszeugnis(
     .all(bildungsgang) as { fach: string; halbjahr: number }[];
   const pruefLabel = (fach: string) =>
     fach === 'ENGLISCH' ? 'Englisch-FHR' : fach === 'MATHEMATIK' ? 'Mathe-FHR' : `${namen.get(fach) ?? fach} (Prüfung)`;
+  // Fach-IDs der Prüfungsfächer einmal auflösen (statt je Schüler:in erneut).
+  const pruefFachId = new Map(pruefPos.map((p) => [p.fach, fachId(db, p.fach)]));
 
   return schueler.map((s) => {
     const cache = new Map<string, ErgebnisHalbjahr[]>();
@@ -482,11 +500,11 @@ function abschlusszeugnis(
         fach: `${p.fach}:${p.halbjahr}`,
         label: posLabel(p),
         endpunkte: z?.endpunkte ?? null,
-        tendenz: ausweisTendenz(p.fach, z?.tendenz ?? null),
+        tendenz: ausweisTendenz(komma.has(p.fach), z?.tendenz ?? null),
       };
     });
     const pruefungen: ZeugnisZelle[] = pruefPos.map((p) => {
-      const wert = ladePruefungsnote(db, s.id, fachId(db, p.fach), p.halbjahr);
+      const wert = ladePruefungsnote(db, s.id, pruefFachId.get(p.fach)!, p.halbjahr);
       return {
         fach: `PRUEF:${p.fach}:${p.halbjahr}`,
         label: pruefLabel(p.fach),

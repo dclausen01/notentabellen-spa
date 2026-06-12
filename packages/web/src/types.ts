@@ -172,7 +172,6 @@ export interface NotenImportZeile {
   halbjahr: number | null;
   typ: string;
   wert: number | null;
-  bisher: number | null;
   grund?: string;
 }
 export interface NotenImportBericht {
