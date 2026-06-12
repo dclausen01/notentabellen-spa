@@ -66,7 +66,7 @@ export function ZeugnisPage() {
 
   return (
     <div className="page">
-      <h2>Zeugnisansicht</h2>
+      <h2>Notenübersicht</h2>
       <div className="filterleiste">
         <label>
           Klasse
