@@ -185,6 +185,35 @@ export interface NotenImportBericht {
   zeilen: NotenImportZeile[];
 }
 
+export interface EingefroreneNote {
+  fach: string;
+  fachName: string;
+  halbjahr: number;
+  wert: number;
+}
+
+export interface WechselBericht {
+  schuelerId: number;
+  altKlasse: string;
+  altBildungsgang: string;
+  neuKlasse: string;
+  neuBildungsgang: string;
+  bildungsgangGewechselt: boolean;
+  eingefroren: EingefroreneNote[];
+  nichtUebernommen: EingefroreneNote[];
+}
+
+export interface QuerwechslerEndnote {
+  fach: string;
+  halbjahr: number;
+  wert: number;
+}
+
+export interface QuerwechslerBericht {
+  id: number;
+  uebernommen: number;
+}
+
 export interface KomponenteKonfig {
   halbjahr: number;
   komponenteId: number;

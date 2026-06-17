@@ -8,9 +8,11 @@ import type {
   Klasse,
   Lehrkraft,
   NotenImportBericht,
+  QuerwechslerEndnote,
   Rolle,
   Schueler,
   SchemaUebersichtZeile,
+  WechselBericht,
   WpkKurs,
 } from '../types.js';
 
@@ -379,14 +381,18 @@ function StammdatenBereich() {
         onFertig={() => void ladeKlassen()}
       />
 
+      <QuerwechslerAufnahme klassen={klassen} onFertig={() => void ladeKlassen()} />
+
       <NotenImport onFertig={() => void ladeKlassen()} />
 
-      {aktiveKlasse != null && <SchuelerVerwaltung klasseId={aktiveKlasse} />}
+      {aktiveKlasse != null && (
+        <SchuelerVerwaltung klasseId={aktiveKlasse} klassen={klassen} />
+      )}
     </div>
   );
 }
 
-function SchuelerVerwaltung({ klasseId }: { klasseId: number }) {
+function SchuelerVerwaltung({ klasseId, klassen }: { klasseId: number; klassen: Klasse[] }) {
   const [schueler, setSchueler] = useState<Schueler[]>([]);
   const [name, setName] = useState('');
   const [vorname, setVorname] = useState('');
@@ -394,6 +400,14 @@ function SchuelerVerwaltung({ klasseId }: { klasseId: number }) {
   const [bearbeiteId, setBearbeiteId] = useState<number | null>(null);
   const [eName, setEName] = useState('');
   const [eVorname, setEVorname] = useState('');
+  // Klassenwechsel: offene Zeile, gewählte Zielklasse und Ergebnisbericht.
+  const [wechselId, setWechselId] = useState<number | null>(null);
+  const [wechselZiel, setWechselZiel] = useState('');
+  const [wechselLaeuft, setWechselLaeuft] = useState(false);
+  const [bericht, setBericht] = useState<WechselBericht | null>(null);
+
+  const aktuelleKlasse = klassen.find((k) => k.id === klasseId);
+  const andereKlassen = klassen.filter((k) => k.id !== klasseId);
 
   async function lade() {
     setSchueler(await api.schueler(klasseId));
@@ -446,6 +460,39 @@ function SchuelerVerwaltung({ klasseId }: { klasseId: number }) {
     await lade();
   }
 
+  function startWechsel(id: number) {
+    setWechselId(id);
+    setWechselZiel('');
+    setBericht(null);
+    setFehler(null);
+  }
+
+  async function wechselDurchfuehren(id: number) {
+    if (!wechselZiel) return;
+    const ziel = klassen.find((k) => k.id === Number(wechselZiel));
+    const wechselBg = ziel && aktuelleKlasse && ziel.bildungsgang !== aktuelleKlasse.bildungsgang;
+    if (
+      wechselBg &&
+      !confirm(
+        `Bildungsgang-Wechsel (${aktuelleKlasse?.bildungsgang} → ${ziel?.bildungsgang}): ` +
+          'Endnoten aus LF2/LF3 und Praxis/Blockpraxis werden als übernommene Endnote eingefroren. Fortfahren?',
+      )
+    )
+      return;
+    setFehler(null);
+    setWechselLaeuft(true);
+    try {
+      const r = await adminApi.verschiebeSchueler(id, Number(wechselZiel));
+      setBericht(r);
+      setWechselId(null);
+      await lade();
+    } catch (err) {
+      setFehler(fehlerText(err));
+    } finally {
+      setWechselLaeuft(false);
+    }
+  }
+
   return (
     <section className="card span-2">
       <h3>Schüler:innen der Klasse</h3>
@@ -494,6 +541,9 @@ function SchuelerVerwaltung({ klasseId }: { klasseId: number }) {
                     <button type="button" className="link-button" title="Bearbeiten" onClick={() => startBearbeiten(s)}>
                       ✎ bearbeiten
                     </button>
+                    <button type="button" className="link-button" onClick={() => startWechsel(s.id)}>
+                      Klasse wechseln
+                    </button>
                     <button type="button" className="link-button" onClick={() => void deaktivieren(s.id)}>
                       deaktivieren
                     </button>
@@ -505,6 +555,40 @@ function SchuelerVerwaltung({ klasseId }: { klasseId: number }) {
               )}
             </tr>
           ))}
+          {wechselId != null && (
+            <tr>
+              <td colSpan={3}>
+                <div className="formular zeile">
+                  <label>
+                    Zielklasse
+                    <select value={wechselZiel} onChange={(e) => setWechselZiel(e.target.value)}>
+                      <option value="">– wählen –</option>
+                      {andereKlassen.map((k) => (
+                        <option key={k.id} value={k.id}>
+                          {k.bezeichnung} ({k.bildungsgang})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    disabled={!wechselZiel || wechselLaeuft}
+                    onClick={() => void wechselDurchfuehren(wechselId)}
+                  >
+                    verschieben
+                  </button>
+                  <button type="button" className="link-button" onClick={() => setWechselId(null)}>
+                    abbrechen
+                  </button>
+                </div>
+                <p className="muted hinweis">
+                  Bei gleichem Bildungsgang wandern alle Noten mit. Bei einem Wechsel des
+                  Bildungsgangs werden LF2/LF3 und Praxis/Blockpraxis als übernommene Endnote
+                  eingefroren; direkte Fächer bleiben editierbar.
+                </p>
+              </td>
+            </tr>
+          )}
           {schueler.length === 0 && (
             <tr>
               <td colSpan={3} className="muted">Keine aktiven Schüler:innen.</td>
@@ -513,6 +597,201 @@ function SchuelerVerwaltung({ klasseId }: { klasseId: number }) {
         </tbody>
       </table>
       </div>
+      {bericht && (
+        <div className="hinweis">
+          <p className="erfolg">
+            Verschoben: {bericht.altKlasse} ({bericht.altBildungsgang}) → {bericht.neuKlasse} (
+            {bericht.neuBildungsgang}).
+            {bericht.bildungsgangGewechselt
+              ? ` ${bericht.eingefroren.length} Endnote(n) eingefroren.`
+              : ' Alle Noten unverändert mitgenommen.'}
+          </p>
+          {bericht.eingefroren.length > 0 && (
+            <p className="muted">
+              Eingefroren:{' '}
+              {bericht.eingefroren
+                .map((e) => `${e.fachName} ${e.halbjahr}. Hj. (${e.wert.toFixed(1)})`)
+                .join(' · ')}
+            </p>
+          )}
+          {bericht.nichtUebernommen.length > 0 && (
+            <p className="fehler">
+              Nicht übernommen (im neuen Bildungsgang kein passendes Halbjahr — bitte manuell
+              prüfen):{' '}
+              {bericht.nichtUebernommen
+                .map((e) => `${e.fachName} ${e.halbjahr}. Hj. (${e.wert.toFixed(1)})`)
+                .join(' · ')}
+            </p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// =====================================================================
+// Querwechsler:in aufnehmen
+// =====================================================================
+
+/**
+ * Geführte Aufnahme einer Querwechsler:in von einer anderen Schule: Stammdaten +
+ * mitgebrachte Endnoten der bereits absolvierten Halbjahre (vor dem Eintritts-
+ * halbjahr). Die Endnoten werden als übernommene Endnote (Override) gespeichert.
+ */
+function QuerwechslerAufnahme({ klassen, onFertig }: { klassen: Klasse[]; onFertig: () => void }) {
+  const [name, setName] = useState('');
+  const [vorname, setVorname] = useState('');
+  const [klasseId, setKlasseId] = useState('');
+  const [eintritt, setEintritt] = useState('2');
+  const [schema, setSchema] = useState<SchemaUebersichtZeile[]>([]);
+  // Eingaben je "FACH:halbjahr" als Rohtext (leer = nicht übernehmen).
+  const [werte, setWerte] = useState<Record<string, string>>({});
+  const [fehler, setFehler] = useState<string | null>(null);
+  const [erfolg, setErfolg] = useState<string | null>(null);
+  const [laeuft, setLaeuft] = useState(false);
+
+  const klasse = klassen.find((k) => k.id === Number(klasseId));
+
+  useEffect(() => {
+    setWerte({});
+    if (!klasse) {
+      setSchema([]);
+      return;
+    }
+    adminApi.schemata(klasse.bildungsgang).then(setSchema).catch((e) => setFehler(fehlerText(e)));
+  }, [klasse?.bildungsgang]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Aktive (Fach × Halbjahr) vor dem Eintrittshalbjahr — sortiert nach Fach, Hj.
+  const eintrittHj = Number(eintritt);
+  const positionen = schema
+    .filter((z) => z.aktiv && z.halbjahr < eintrittHj)
+    .sort((a, b) => (a.fach === b.fach ? a.halbjahr - b.halbjahr : a.fach.localeCompare(b.fach)));
+
+  async function aufnehmen(e: React.FormEvent) {
+    e.preventDefault();
+    setFehler(null);
+    setErfolg(null);
+    const endnoten: QuerwechslerEndnote[] = [];
+    for (const z of positionen) {
+      const roh = (werte[`${z.fach}:${z.halbjahr}`] ?? '').trim();
+      if (roh === '') continue;
+      const wert = Number(roh.replace(',', '.'));
+      if (!Number.isFinite(wert) || wert < 0 || wert > 15) {
+        setFehler(`${z.fachName} ${z.halbjahr}. Hj.: Punkte müssen zwischen 0 und 15 liegen`);
+        return;
+      }
+      endnoten.push({ fach: z.fach, halbjahr: z.halbjahr, wert });
+    }
+    setLaeuft(true);
+    try {
+      const r = await adminApi.nimmQuerwechslerAuf({
+        name,
+        vorname,
+        klasseId: Number(klasseId),
+        endnoten,
+      });
+      setErfolg(`${vorname} ${name} aufgenommen — ${r.uebernommen} Endnote(n) übernommen.`);
+      setName('');
+      setVorname('');
+      setWerte({});
+      onFertig();
+    } catch (err) {
+      setFehler(fehlerText(err));
+    } finally {
+      setLaeuft(false);
+    }
+  }
+
+  return (
+    <section className="card span-2">
+      <h3>Querwechsler:in aufnehmen</h3>
+      <p className="muted hinweis">
+        Für Schüler:innen, die von einer anderen Schule in einen laufenden Bildungsgang
+        wechseln. Die mitgebrachten Endnoten der bereits absolvierten Halbjahre werden als
+        übernommene Endnote gespeichert und dienen als Basis für die Folgehalbjahre.
+      </p>
+      <form className="formular" onSubmit={aufnehmen}>
+        <div className="zeile">
+          <label>
+            Name
+            <input value={name} onChange={(e) => setName(e.target.value)} required />
+          </label>
+          <label>
+            Vorname
+            <input value={vorname} onChange={(e) => setVorname(e.target.value)} required />
+          </label>
+          <label>
+            Zielklasse
+            <select value={klasseId} onChange={(e) => setKlasseId(e.target.value)} required>
+              <option value="">– wählen –</option>
+              {klassen.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.bezeichnung} ({k.bildungsgang})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Eintritt ab Halbjahr
+            <select value={eintritt} onChange={(e) => setEintritt(e.target.value)}>
+              {[1, 2, 3, 4].map((h) => (
+                <option key={h} value={h}>
+                  {h}. Halbjahr
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        {klasse && positionen.length > 0 && (
+          <>
+            <p className="muted hinweis">
+              Endnoten der Halbjahre vor dem Eintritt (Punkte 0–15, leer lassen = keine
+              Übernahme):
+            </p>
+            <div className="tabelle-scroll">
+              <table className="tabelle">
+                <thead>
+                  <tr>
+                    <th>Fach</th>
+                    <th>Halbjahr</th>
+                    <th>Endnote (Punkte)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {positionen.map((z) => {
+                    const key = `${z.fach}:${z.halbjahr}`;
+                    return (
+                      <tr key={key}>
+                        <td className="name">{z.fachName}</td>
+                        <td>{z.halbjahr}. Hj.</td>
+                        <td>
+                          <input
+                            inputMode="numeric"
+                            placeholder="–"
+                            aria-label={`${z.fachName} ${z.halbjahr}. Halbjahr Punkte`}
+                            value={werte[key] ?? ''}
+                            onChange={(e) => setWerte((w) => ({ ...w, [key]: e.target.value }))}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+        {klasse && eintrittHj === 1 && (
+          <p className="muted">Eintritt im 1. Halbjahr — keine vorherigen Endnoten zu übernehmen.</p>
+        )}
+
+        <button type="submit" disabled={laeuft || !klasseId}>
+          Querwechsler:in aufnehmen
+        </button>
+      </form>
+      {fehler && <p className="fehler" role="alert">{fehler}</p>}
+      {erfolg && <p className="erfolg">{erfolg}</p>}
     </section>
   );
 }

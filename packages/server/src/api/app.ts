@@ -65,6 +65,11 @@ import { exportDateiname, zeugnisAlsXlsx } from '../services/export.js';
 import { notenbekanntgabeDocx } from '../services/notenbekanntgabe.js';
 import { importiereLehrkraefte, importiereSchueler } from '../services/import.js';
 import { importiereNoten } from '../services/import-noten.js';
+import {
+  nimmQuerwechslerAuf,
+  verschiebeSchueler,
+  type QuerwechslerEndnote,
+} from '../services/schueler-wechsel.js';
 
 export interface AppOptions {
   db: DB;
@@ -566,6 +571,44 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
     }
     aktualisiereSchueler(db, id, b.name.trim(), b.vorname.trim());
     return reply.code(204).send();
+  });
+
+  // Klassenwechsel: verschiebt die Schüler:in in eine andere Klasse. Bei einem
+  // Bildungsgang-Wechsel werden nicht übertragbare Endnoten eingefroren.
+  app.put('/api/admin/schueler/:id/klasse', async (req, reply) => {
+    const id = zahl((req.params as { id: string }).id);
+    if (id === undefined) return reply.code(400).send({ fehler: 'Ungültige Schüler-ID' });
+    const b = req.body as Partial<{ klasseId: number }>;
+    if (b.klasseId === undefined) return reply.code(400).send({ fehler: 'klasseId erforderlich' });
+    try {
+      return verschiebeSchueler(db, id, b.klasseId, ident(req).lehrkraftId);
+    } catch (e) {
+      return reply.code(400).send({ fehler: (e as Error).message });
+    }
+  });
+
+  // Querwechsler:in aufnehmen: legt die Schüler:in an und übernimmt mitgebrachte
+  // Endnoten der vorherigen Halbjahre als Override.
+  app.post('/api/admin/querwechsler', async (req, reply) => {
+    const b = req.body as Partial<{
+      name: string;
+      vorname: string;
+      klasseId: number;
+      endnoten: QuerwechslerEndnote[];
+    }>;
+    if (!b.name || !b.vorname || b.klasseId === undefined) {
+      return reply.code(400).send({ fehler: 'name, vorname und klasseId erforderlich' });
+    }
+    try {
+      const bericht = nimmQuerwechslerAuf(
+        db,
+        { name: b.name, vorname: b.vorname, klasseId: b.klasseId, endnoten: b.endnoten ?? [] },
+        ident(req).lehrkraftId,
+      );
+      return reply.code(201).send(bericht);
+    } catch (e) {
+      return reply.code(400).send({ fehler: konfliktText(e, 'Schüler:in konnte nicht angelegt werden') });
+    }
   });
 
   // ?hart=1 löscht endgültig (inkl. Noten), sonst nur deaktivieren.

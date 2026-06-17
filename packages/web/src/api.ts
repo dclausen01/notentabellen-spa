@@ -11,9 +11,12 @@ import type {
   Lehrkraft,
   ImportBericht,
   NotenImportBericht,
+  QuerwechslerBericht,
+  QuerwechslerEndnote,
   Rolle,
   Schueler,
   SchemaUebersichtZeile,
+  WechselBericht,
   WpkKurs,
   ZeugnisZeile,
 } from './types.js';
@@ -188,6 +191,23 @@ export const adminApi = {
 
   loescheSchueler: (id: number) =>
     apiFetch<void>(`/api/admin/schueler/${id}?hart=1`, { method: 'DELETE' }),
+
+  verschiebeSchueler: (id: number, klasseId: number) =>
+    apiFetch<WechselBericht>(`/api/admin/schueler/${id}/klasse`, {
+      method: 'PUT',
+      body: JSON.stringify({ klasseId }),
+    }),
+
+  nimmQuerwechslerAuf: (body: {
+    name: string;
+    vorname: string;
+    klasseId: number;
+    endnoten: QuerwechslerEndnote[];
+  }) =>
+    apiFetch<QuerwechslerBericht>('/api/admin/querwechsler', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
   lehrkraefte: () => apiFetch<Lehrkraft[]>('/api/admin/lehrkraefte'),
 

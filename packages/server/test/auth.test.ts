@@ -136,6 +136,22 @@ describe('Klassenleitung: liest alle Fächer + Zeugnis der eigenen Klasse', () =
   });
 });
 
+describe('Klassenwechsel & Querwechsler: nur Admin', () => {
+  it('Fachlehrkraft darf nicht verschieben (403)', async () => {
+    const token = await login('fachlk');
+    const res = await req('PUT', `/api/admin/schueler/${schueler}/klasse`, token, { klasseId: klasse });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('Klassenleitung darf keine Querwechsler:in aufnehmen (403)', async () => {
+    const token = await login('kl');
+    const res = await req('POST', '/api/admin/querwechsler', token, {
+      name: 'Quer', vorname: 'Wexler', klasseId: klasse, endnoten: [],
+    });
+    expect(res.statusCode).toBe(403);
+  });
+});
+
 describe('Notenbekanntgabe: nur Klassenleitung darf erstellen', () => {
   it('Fachlehrkraft (kein KL) → darfNotenbekanntgabe=false und 403 am Endpoint', async () => {
     const token = await login('fachlk');
