@@ -154,6 +154,8 @@ export function loescheKlasse(db: DB, klasseId: number): void {
   const tx = db.transaction(() => {
     db.prepare(`DELETE FROM komponentennote WHERE ${schuelerFilter}`).run(klasseId);
     db.prepare(`DELETE FROM fachnote_direkt WHERE ${schuelerFilter}`).run(klasseId);
+    db.prepare(`DELETE FROM pruefungsnote WHERE ${schuelerFilter}`).run(klasseId);
+    db.prepare(`DELETE FROM importierte_endnote WHERE ${schuelerFilter}`).run(klasseId);
     db.prepare(`DELETE FROM wpk_eingabe WHERE ${schuelerFilter}`).run(klasseId);
     db.prepare(`DELETE FROM ergebnis WHERE ${schuelerFilter}`).run(klasseId);
     db.prepare('DELETE FROM schueler WHERE klasse_id = ?').run(klasseId);
@@ -178,6 +180,8 @@ export function loescheSchuelerHart(db: DB, id: number): void {
   const tx = db.transaction(() => {
     db.prepare('DELETE FROM komponentennote WHERE schueler_id = ?').run(id);
     db.prepare('DELETE FROM fachnote_direkt WHERE schueler_id = ?').run(id);
+    db.prepare('DELETE FROM pruefungsnote WHERE schueler_id = ?').run(id);
+    db.prepare('DELETE FROM importierte_endnote WHERE schueler_id = ?').run(id);
     db.prepare('DELETE FROM wpk_eingabe WHERE schueler_id = ?').run(id);
     db.prepare('DELETE FROM ergebnis WHERE schueler_id = ?').run(id);
     db.prepare('DELETE FROM schueler WHERE id = ?').run(id);

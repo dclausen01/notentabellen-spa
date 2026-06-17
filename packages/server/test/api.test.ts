@@ -486,6 +486,116 @@ describe('Übernommene Endnote (Import historischer Noten)', () => {
   });
 });
 
+describe('Klassenwechsel', () => {
+  const setzeLf2Hj1 = async (klasseId: number, wert: number) => {
+    for (const sl of ['gesundheit', 'erziehung', 'entwicklung']) {
+      await json('PUT', '/api/noten/komponente', adminToken, {
+        schuelerId: schueler, komponenteId: lf2KompId(sl, 1, klasseId), halbjahr: 1, wert, istNa: false,
+      });
+    }
+  };
+  const importEndnote = (fach: string, halbjahr: number) =>
+    db
+      .prepare(
+        'SELECT wert FROM importierte_endnote WHERE schueler_id = ? AND fach_id = ? AND halbjahr = ?',
+      )
+      .get(schueler, fachId(db, fach), halbjahr) as { wert: number } | undefined;
+
+  it('gleicher Bildungsgang: Noten bleiben, kein Einfrieren', async () => {
+    const piaZwei = erstelleKlasse(db, 'SPA PiA 2', '2025/26', 'SPA_PIA');
+    await setzeLf2Hj1(piaKlasse, 10); // LF2 Hj1 = 10
+    const vorher = (await json('GET', `/api/schueler/${schueler}/fach/LF2`, adminToken)).body
+      .find((e: any) => e.halbjahr === 1).endpunkte;
+    expect(vorher).toBe(10);
+
+    const r = await json('PUT', `/api/admin/schueler/${schueler}/klasse`, adminToken, { klasseId: piaZwei });
+    expect(r.status).toBe(200);
+    expect(r.body.bildungsgangGewechselt).toBe(false);
+    expect(r.body.eingefroren).toHaveLength(0);
+    // Klasse geändert, LF2 weiterhin aus Komponenten (kein Override angelegt).
+    expect((db.prepare('SELECT klasse_id FROM schueler WHERE id = ?').get(schueler) as any).klasse_id).toBe(piaZwei);
+    expect(importEndnote('LF2', 1)).toBeUndefined();
+    const nachher = (await json('GET', `/api/schueler/${schueler}/fach/LF2`, adminToken)).body
+      .find((e: any) => e.halbjahr === 1).endpunkte;
+    expect(nachher).toBe(10);
+  });
+
+  it('PiA→regulär: LF2/LF3 werden eingefroren, direkte Fächer wandern mit, Folge kumuliert', async () => {
+    await setzeLf2Hj1(piaKlasse, 10); // LF2 Hj1 = 10 (Komponenten)
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: schueler, fach: 'LF1', halbjahr: 1, wert: 8, istNa: false,
+    });
+
+    const r = await json('PUT', `/api/admin/schueler/${schueler}/klasse`, adminToken, { klasseId: regKlasse });
+    expect(r.status).toBe(200);
+    expect(r.body.bildungsgangGewechselt).toBe(true);
+    expect(r.body.eingefroren.some((e: any) => e.fach === 'LF2' && e.halbjahr === 1 && e.wert === 10)).toBe(true);
+
+    // LF2 Hj1 jetzt als Override gespeichert und weiterhin 10.
+    expect(importEndnote('LF2', 1)?.wert).toBe(10);
+    const lf2 = (await json('GET', `/api/schueler/${schueler}/fach/LF2`, adminToken)).body;
+    expect(lf2.find((e: any) => e.halbjahr === 1).endpunkte).toBe(10);
+    // Direktes Fach LF1 wandert nativ mit (kein Override).
+    expect(importEndnote('LF1', 1)).toBeUndefined();
+    expect((await json('GET', `/api/schueler/${schueler}/fach/LF1`, adminToken)).body
+      .find((e: any) => e.halbjahr === 1).endpunkte).toBe(8);
+
+    // Folge-Halbjahr im neuen Bildungsgang: 0,5·Override(10) + 0,5·Zwischennote(6) = 8.
+    for (const sl of ['gesundheit', 'erziehung', 'entwicklung']) {
+      await json('PUT', '/api/noten/komponente', adminToken, {
+        schuelerId: schueler, komponenteId: lf2KompId(sl, 2, regKlasse), halbjahr: 2, wert: 6, istNa: false,
+      });
+    }
+    const lf2nach = (await json('GET', `/api/schueler/${schueler}/fach/LF2`, adminToken)).body;
+    expect(lf2nach.find((e: any) => e.halbjahr === 2).endpunkte).toBeCloseTo(8, 6);
+  });
+
+  it('Praxis-Sonderfall: Blockpraxis(3.) ist im Zielbildungsgang nicht übernehmbar', async () => {
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: schueler, fach: 'PRAXIS', halbjahr: 2, wert: 9, istNa: false,
+    });
+    await json('PUT', '/api/noten/direkt', adminToken, {
+      schuelerId: schueler, fach: 'BLOCKPRAXIS', halbjahr: 3, wert: 8, istNa: false,
+    });
+    const r = await json('PUT', `/api/admin/schueler/${schueler}/klasse`, adminToken, { klasseId: regKlasse });
+    expect(r.status).toBe(200);
+    expect(r.body.eingefroren.some((e: any) => e.fach === 'PRAXIS' && e.halbjahr === 2)).toBe(true);
+    expect(r.body.nichtUebernommen.some((e: any) => e.fach === 'BLOCKPRAXIS' && e.halbjahr === 3)).toBe(true);
+  });
+
+  it('Wechsel in dieselbe Klasse: 400', async () => {
+    const r = await json('PUT', `/api/admin/schueler/${schueler}/klasse`, adminToken, { klasseId: piaKlasse });
+    expect(r.status).toBe(400);
+  });
+});
+
+describe('Querwechsler:in aufnehmen', () => {
+  it('legt Schüler:in an und übernimmt Endnoten als Override', async () => {
+    const r = await json('POST', '/api/admin/querwechsler', adminToken, {
+      name: 'Quer', vorname: 'Wexler', klasseId: piaKlasse,
+      endnoten: [
+        { fach: 'LF2', halbjahr: 1, wert: 8 },
+        { fach: 'DEUTSCH', halbjahr: 1, wert: 10 },
+      ],
+    });
+    expect(r.status).toBe(201);
+    expect(r.body.uebernommen).toBe(2);
+    const neuId = r.body.id;
+    const lf2 = (await json('GET', `/api/schueler/${neuId}/fach/LF2`, adminToken)).body;
+    expect(lf2.find((e: any) => e.halbjahr === 1).endpunkte).toBe(8);
+    const deutsch = (await json('GET', `/api/schueler/${neuId}/fach/DEUTSCH`, adminToken)).body;
+    expect(deutsch.find((e: any) => e.halbjahr === 1).endpunkte).toBe(10);
+  });
+
+  it('lehnt Endnote für ein im Bildungsgang inaktives Halbjahr ab (400)', async () => {
+    const r = await json('POST', '/api/admin/querwechsler', adminToken, {
+      name: 'Quer', vorname: 'Wexler', klasseId: piaKlasse,
+      endnoten: [{ fach: 'PRAXIS', halbjahr: 1, wert: 8 }], // Praxis PiA Hj1 inaktiv
+    });
+    expect(r.status).toBe(400);
+  });
+});
+
 function lf2KompId(schluessel: string, halbjahr: number, klasseId: number): number {
   return (
     db
