@@ -316,13 +316,14 @@ input, select {
   /* Kein horizontaler Scrollcontainer im Druck — volle Tabelle zeigen. */
   .druck-bereich .tabelle-scroll { overflow: visible; max-width: none; }
 
-  /* Kompakte, klar umrandete Tabelle; sticky-Spalte zurücksetzen. */
+  /* Kompakte, klar umrandete Tabelle; Spaltenbreite nach Inhalt (table-layout:
+     auto), damit die Namensspalte nicht in „Lernfeld 1" überläuft. */
   .druck-bereich .tabelle {
     border: 1px solid #000;
     border-radius: 0;
     background: #fff;
     width: 100%;
-    table-layout: fixed;
+    table-layout: auto;
   }
   .druck-bereich .tabelle th,
   .druck-bereich .tabelle td {
@@ -337,6 +338,10 @@ input, select {
   .druck-bereich .tabelle th:first-child {
     position: static;
     background: #fff;
+    /* Namen umbrechen statt überlaufen; Spalte bleibt kompakt begrenzt. */
+    white-space: normal;
+    min-width: 3cm;
+    max-width: 5cm;
   }
   .druck-bereich .tabelle th:first-child { background: #eee; }
   .druck-bereich .pruefung-spalte { background: #f2e2cf !important; }
