@@ -285,3 +285,62 @@ input, select {
   /* Etwas kompaktere Tabellenzellen, damit mehr Spalten ins Bild passen. */
   .tabelle th, .tabelle td { padding: 0.4rem 0.45rem; }
 }
+
+/* Der Druck-Kopf erscheint nur im Ausdruck. */
+.druck-kopf { display: none; }
+
+/* =====================================================================
+   PDF / Druck: Notenübersicht auf einem A4-Blatt (quer).
+   „Als PDF speichern" im Browser-Druckdialog erzeugt die Datei. Der
+   Druckbereich wird per JS (beforeprint) auf eine Seite skaliert.
+   ===================================================================== */
+@media print {
+  @page { size: A4 landscape; margin: 10mm; }
+
+  /* Alles außer dem Druckbereich verbergen. */
+  .navbar, .filterleiste, .fehler, .erfolg { display: none !important; }
+  .page > h2 { display: none; }
+
+  body, .content, .page { margin: 0; padding: 0; background: #fff; color: #000; }
+
+  /* Farben (Prüfungsblock-Hintergrund) im Ausdruck erhalten. */
+  .druck-bereich {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color: #000;
+  }
+
+  .druck-kopf { display: block; margin-bottom: 4mm; }
+  .druck-kopf h1 { font-size: 1.6em; margin: 0; font-weight: 700; }
+
+  /* Kein horizontaler Scrollcontainer im Druck — volle Tabelle zeigen. */
+  .druck-bereich .tabelle-scroll { overflow: visible; max-width: none; }
+
+  /* Kompakte, klar umrandete Tabelle; sticky-Spalte zurücksetzen. */
+  .druck-bereich .tabelle {
+    border: 1px solid #000;
+    border-radius: 0;
+    background: #fff;
+    width: 100%;
+    table-layout: fixed;
+  }
+  .druck-bereich .tabelle th,
+  .druck-bereich .tabelle td {
+    border: 1px solid #999;
+    padding: 0.2em 0.3em;
+    font-size: 1em;
+    color: #000;
+    word-break: break-word;
+  }
+  .druck-bereich .tabelle th { background: #eee; font-weight: 700; }
+  .druck-bereich .tabelle td:first-child,
+  .druck-bereich .tabelle th:first-child {
+    position: static;
+    background: #fff;
+  }
+  .druck-bereich .tabelle th:first-child { background: #eee; }
+  .druck-bereich .pruefung-spalte { background: #f2e2cf !important; }
+  .druck-bereich .tabelle th.pruefung-spalte,
+  .druck-bereich .tabelle th.pruefung-gruppe { background: #e7cfa8 !important; }
+  .druck-bereich .pruefung-start { border-left: 1.5pt solid #000; }
+}

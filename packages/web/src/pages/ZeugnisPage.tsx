@@ -1,8 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api.js';
 import type { Klasse, ZeugnisZeile } from '../types.js';
 
 const HALBJAHRE = [1, 2, 3, 4];
+
+// A4 quer (297×210 mm) minus 10 mm Rand je Seite, in CSS-Pixeln (96 dpi).
+const MM_ZU_PX = 96 / 25.4;
+const A4_QUER_BREITE_PX = (297 - 20) * MM_ZU_PX;
+const A4_QUER_HOEHE_PX = (210 - 20) * MM_ZU_PX;
+const DRUCK_BASIS_PT = 10; // Basis-Schriftgröße des Druckbereichs
+const DRUCK_MIN_PT = 6; // Untergrenze für Lesbarkeit
 
 export function ZeugnisPage() {
   const [klassen, setKlassen] = useState<Klasse[]>([]);
@@ -11,9 +18,38 @@ export function ZeugnisPage() {
   const [zeilen, setZeilen] = useState<ZeugnisZeile[]>([]);
   const [fehler, setFehler] = useState<string | null>(null);
   const [meldung, setMeldung] = useState<string | null>(null);
+  const druckRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.klassen().then(setKlassen).catch((e) => setFehler(e.message));
+  }, []);
+
+  // Vor dem Druck den Druckbereich so skalieren, dass er auf ein A4-Blatt (quer)
+  // passt: Schriftgröße statt transform (kein Clipping, sauberer Umbruch).
+  useEffect(() => {
+    const bereich = druckRef.current;
+    if (!bereich) return;
+    const skalieren = () => {
+      bereich.style.fontSize = `${DRUCK_BASIS_PT}pt`;
+      const { scrollWidth, scrollHeight } = bereich;
+      if (scrollWidth === 0 || scrollHeight === 0) return;
+      const faktor = Math.min(
+        1,
+        A4_QUER_BREITE_PX / scrollWidth,
+        A4_QUER_HOEHE_PX / scrollHeight,
+      );
+      const pt = Math.max(DRUCK_MIN_PT, DRUCK_BASIS_PT * faktor);
+      bereich.style.fontSize = `${pt}pt`;
+    };
+    const zuruecksetzen = () => {
+      bereich.style.fontSize = '';
+    };
+    window.addEventListener('beforeprint', skalieren);
+    window.addEventListener('afterprint', zuruecksetzen);
+    return () => {
+      window.removeEventListener('beforeprint', skalieren);
+      window.removeEventListener('afterprint', zuruecksetzen);
+    };
   }, []);
 
   useEffect(() => {
@@ -64,6 +100,10 @@ export function ZeugnisPage() {
   const faecher = zeilen[0]?.faecher ?? [];
   const pruefungen = zeilen[0]?.pruefungen ?? [];
 
+  const druckTitel = aktiveKlasse
+    ? `Notenübersicht – ${aktiveKlasse.bezeichnung} (${aktiveKlasse.schuljahr}) – ${halbjahr}. Halbjahr`
+    : '';
+
   return (
     <div className="page">
       <h2>Notenübersicht</h2>
@@ -103,6 +143,16 @@ export function ZeugnisPage() {
             Als Excel exportieren
           </button>
         )}
+        {klasseId != null && zeilen.length > 0 && (
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => window.print()}
+            title="Druckansicht – im Dialog „Als PDF speichern“ wählen (eine A4-Seite, quer)"
+          >
+            PDF / Drucken
+          </button>
+        )}
         {klasseId != null && zeilen.length > 0 && aktiveKlasse?.darfNotenbekanntgabe && (
           <button
             type="button"
@@ -119,7 +169,11 @@ export function ZeugnisPage() {
       {meldung && <p className="erfolg">{meldung}</p>}
 
       {zeilen.length > 0 && (
-        <div className="tabelle-scroll">
+        <div className="druck-bereich" ref={druckRef}>
+          <div className="druck-kopf">
+            <h1>{druckTitel}</h1>
+          </div>
+          <div className="tabelle-scroll">
           <table className="tabelle zeugnis">
             <thead>
               {pruefungen.length > 0 && (
@@ -166,6 +220,7 @@ export function ZeugnisPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
