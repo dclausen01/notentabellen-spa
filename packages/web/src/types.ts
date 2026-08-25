@@ -72,6 +72,8 @@ export interface Eingabemaske {
   pruefung?: boolean;
   /** Zur Orientierung: Wert aus Vorhalbjahr/Quelle, der in die Endnote einfließt. */
   vorwerte?: VorwertInfo;
+  /** false ⇒ nur lesen (kein Lehrauftrag/keine Klassenleitung) — Felder gesperrt. */
+  darfBearbeiten?: boolean;
 }
 
 export interface ErgebnisHalbjahr {

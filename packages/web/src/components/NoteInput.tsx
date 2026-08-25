@@ -9,6 +9,8 @@ interface Props {
   /** Spalten-/Zeilenindex für die spaltenweise Tab-/Enter-Navigation. */
   navCol?: number;
   navRow?: number;
+  /** Nur lesen (kein Schreibrecht für dieses Fach/Halbjahr). */
+  disabled?: boolean;
 }
 
 /**
@@ -35,7 +37,7 @@ function navInputs(von: HTMLInputElement): HTMLInputElement[] {
  * Verlassen des Feldes bzw. beim Umschalten von n/a (debouncefrei, da Speichern
  * an `onBlur` hängt).
  */
-export function NoteInput({ wert, naErlaubt, onSpeichern, navCol, navRow }: Props) {
+export function NoteInput({ wert, naErlaubt, onSpeichern, navCol, navRow, disabled }: Props) {
   const [text, setText] = useState(wert.wert?.toString() ?? '');
   const [fehler, setFehler] = useState(false);
 
@@ -62,9 +64,11 @@ export function NoteInput({ wert, naErlaubt, onSpeichern, navCol, navRow }: Prop
     return (
       <div className="note-input na">
         <span className="na-label">n/a</span>
-        <button type="button" className="link-button" onClick={() => onSpeichern({ wert: null, istNa: false })}>
-          ✕
-        </button>
+        {!disabled && (
+          <button type="button" className="link-button" onClick={() => onSpeichern({ wert: null, istNa: false })}>
+            ✕
+          </button>
+        )}
       </div>
     );
   }
@@ -75,6 +79,7 @@ export function NoteInput({ wert, naErlaubt, onSpeichern, navCol, navRow }: Prop
         inputMode="numeric"
         value={text}
         placeholder="–"
+        disabled={disabled}
         aria-label="Punkte 0 bis 15"
         {...(navCol !== undefined ? { 'data-nav-col': navCol, 'data-nav-row': navRow } : {})}
         onChange={(e) => setText(e.target.value)}
@@ -100,7 +105,7 @@ export function NoteInput({ wert, naErlaubt, onSpeichern, navCol, navRow }: Prop
           }
         }}
       />
-      {naErlaubt && (
+      {naErlaubt && !disabled && (
         <button
           type="button"
           className="link-button na-toggle"
