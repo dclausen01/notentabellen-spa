@@ -39,6 +39,11 @@ export interface Eingabemaske {
   wpkKurse?: WpkKursOption[];
   /** true, wenn in diesem Halbjahr eine Prüfungsnote erfasst wird (4. Hj.). */
   pruefung?: boolean;
+  /**
+   * Darf die anfragende Lehrkraft hier speichern? Wird von der Route ergänzt
+   * (siehe `darfNotenBearbeiten`); false ⇒ der Client sperrt die Felder.
+   */
+  darfBearbeiten?: boolean;
 }
 
 /**

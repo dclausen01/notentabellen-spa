@@ -23,8 +23,13 @@ export function EingabePage() {
   const [vorschau, setVorschau] = useState<Record<number, string>>({});
   const [komponentenKonfig, setKomponentenKonfig] = useState<KomponenteKonfig[]>([]);
   const [fehler, setFehler] = useState<string | null>(null);
+  // Zählt jedes vollständige Laden der Maske. Fließt in den `key` der Tabelle
+  // und setzt damit die Eingabefelder auf den geladenen Stand zurück (s. u.).
+  const [ladeStand, setLadeStand] = useState(0);
 
   const darfKomponentenSchalten = ident?.rolle === 'admin' || ident?.rolle === 'klassenleitung';
+  // Der Server liefert das Schreibrecht mit; fehlt es (ältere Antwort), bearbeitbar.
+  const nurLesen = maske?.darfBearbeiten === false;
 
   useEffect(() => {
     api.klassen().then(setKlassen).catch((e) => setFehler(e.message));
@@ -71,6 +76,7 @@ export function EingabePage() {
     try {
       const m = await api.eingabe(klasseId, fach, halbjahr);
       setMaske(m);
+      setLadeStand((n) => n + 1);
       setVorschau({});
       for (const z of m.zeilen) void ladeVorschau(z.schuelerId, fach, halbjahr);
       // Schaltbare Rest-Komponenten (LF3) nur für KL/Admin laden.
@@ -102,34 +108,61 @@ export function EingabePage() {
     void ladeMaske();
   }, [ladeMaske]);
 
+  /**
+   * Führt einen Speicher-Vorgang aus und meldet Fehler sichtbar. Schlägt das
+   * Speichern fehl (z. B. 403 ohne Lehrauftrag), wird die Maske neu geladen —
+   * sonst bliebe die nicht gespeicherte Eingabe stehen und sähe aus, als wäre
+   * sie übernommen worden.
+   */
+  async function mitFehlermeldung(fn: () => Promise<void>) {
+    try {
+      setFehler(null);
+      await fn();
+    } catch (e) {
+      const meldung = e instanceof ApiError ? e.message : 'Speichern fehlgeschlagen';
+      // Erst neu laden (verwirft die nicht gespeicherte Eingabe), dann melden —
+      // ladeMaske() setzt die Fehlermeldung zu Beginn selbst zurück.
+      await ladeMaske();
+      setFehler(meldung);
+    }
+  }
+
   async function speichereKomponente(schuelerId: number, komponenteId: number, neu: MaskeWert) {
     if (halbjahr == null) return;
-    await api.speichereKomponente({ schuelerId, komponenteId, halbjahr, wert: neu.wert, istNa: neu.istNa });
-    aktualisiereZelle(schuelerId, (z) => ({
-      ...z,
-      komponenten: { ...z.komponenten, ...komponentenUpdate(z.komponenten, komponenteId, neu, maske) },
-    }));
-    if (fach) void ladeVorschau(schuelerId, fach, halbjahr);
+    await mitFehlermeldung(async () => {
+      await api.speichereKomponente({ schuelerId, komponenteId, halbjahr, wert: neu.wert, istNa: neu.istNa });
+      aktualisiereZelle(schuelerId, (z) => ({
+        ...z,
+        komponenten: { ...z.komponenten, ...komponentenUpdate(z.komponenten, komponenteId, neu, maske) },
+      }));
+      if (fach) void ladeVorschau(schuelerId, fach, halbjahr);
+    });
   }
 
   async function speichereDirekt(schuelerId: number, neu: MaskeWert) {
     if (!fach || halbjahr == null) return;
-    await api.speichereDirekt({ schuelerId, fach, halbjahr, wert: neu.wert, istNa: neu.istNa });
-    aktualisiereZelle(schuelerId, (z) => ({ ...z, direkt: neu }));
-    void ladeVorschau(schuelerId, fach, halbjahr);
+    await mitFehlermeldung(async () => {
+      await api.speichereDirekt({ schuelerId, fach, halbjahr, wert: neu.wert, istNa: neu.istNa });
+      aktualisiereZelle(schuelerId, (z) => ({ ...z, direkt: neu }));
+      void ladeVorschau(schuelerId, fach, halbjahr);
+    });
   }
 
   async function speichereKurs(schuelerId: number, wpkKursId: number | null) {
     if (halbjahr == null) return;
-    await api.speichereWpkKurs({ schuelerId, halbjahr, wpkKursId });
-    aktualisiereZelle(schuelerId, (z) => ({ ...z, wpkKursId }));
+    await mitFehlermeldung(async () => {
+      await api.speichereWpkKurs({ schuelerId, halbjahr, wpkKursId });
+      aktualisiereZelle(schuelerId, (z) => ({ ...z, wpkKursId }));
+    });
   }
 
   async function speicherePruefung(schuelerId: number, neu: MaskeWert) {
     if (!fach || halbjahr == null) return;
-    await api.speicherePruefung({ schuelerId, fach, halbjahr, wert: neu.wert, istNa: neu.istNa });
-    aktualisiereZelle(schuelerId, (z) => ({ ...z, pruefung: neu }));
-    void ladeVorschau(schuelerId, fach, halbjahr);
+    await mitFehlermeldung(async () => {
+      await api.speicherePruefung({ schuelerId, fach, halbjahr, wert: neu.wert, istNa: neu.istNa });
+      aktualisiereZelle(schuelerId, (z) => ({ ...z, pruefung: neu }));
+      void ladeVorschau(schuelerId, fach, halbjahr);
+    });
   }
 
   function aktualisiereZelle(schuelerId: number, fn: (z: Eingabemaske['zeilen'][number]) => Eingabemaske['zeilen'][number]) {
@@ -218,6 +251,12 @@ export function EingabePage() {
         <p className="muted">Verrechnung: {maske.vorwerte.label}</p>
       )}
 
+      {maske && nurLesen && (
+        <p className="muted" role="status">
+          Nur lesend – für dieses Fach/Halbjahr liegt kein Lehrauftrag vor.
+        </p>
+      )}
+
       {maske && (
         <div className="tabelle-scroll">
         <table className="tabelle">
@@ -233,7 +272,14 @@ export function EingabePage() {
               <th className="vorschau-spalte">Endnote (Vorschau)</th>
             </tr>
           </thead>
-          <tbody>
+          {/* Der Key mountet die Eingabefelder bei jedem geladenen Stand neu.
+              NoteInput hält seinen Text lokal und synchronisiert nur, wenn sich
+              der Wert ändert — ohne dieses Zurücksetzen bliebe eine nicht
+              gespeicherte Eingabe (z. B. nach einem abgelehnten Speichern) im
+              Feld stehen und wanderte beim Halbjahr-Wechsel scheinbar mit.
+              Erfolgreiches Speichern lädt die Maske NICHT neu, der Key bleibt
+              also stabil und Fokus/Tab-Navigation bleiben erhalten. */}
+          <tbody key={`${maske.klasseId}-${maske.fach}-${maske.halbjahr}-${ladeStand}`}>
             {maske.zeilen.map((z, zeileIdx) => (
               <tr key={z.schuelerId}>
                 <td className="name">{z.name}, {z.vorname}</td>
@@ -241,6 +287,7 @@ export function EingabePage() {
                   <td>
                     <select
                       value={z.wpkKursId ?? ''}
+                      disabled={nurLesen}
                       onChange={(e) =>
                         void speichereKurs(z.schuelerId, e.target.value ? Number(e.target.value) : null)
                       }
@@ -260,6 +307,7 @@ export function EingabePage() {
                       <NoteInput
                         wert={z.komponenten[k.schluessel] ?? { wert: null, istNa: false }}
                         naErlaubt
+                        disabled={nurLesen}
                         navCol={spalteIdx}
                         navRow={zeileIdx}
                         onSpeichern={(neu) => void speichereKomponente(z.schuelerId, k.id, neu)}
@@ -271,6 +319,7 @@ export function EingabePage() {
                     <NoteInput
                       wert={z.direkt ?? { wert: null, istNa: false }}
                       naErlaubt={maske.deaktivierbar}
+                      disabled={nurLesen}
                       navCol={0}
                       navRow={zeileIdx}
                       onSpeichern={(neu) => void speichereDirekt(z.schuelerId, neu)}
@@ -282,6 +331,7 @@ export function EingabePage() {
                     <NoteInput
                       wert={z.pruefung ?? { wert: null, istNa: false }}
                       naErlaubt
+                      disabled={nurLesen}
                       navCol={maske.modus === 'komponenten_gewichtet' ? maske.komponenten.length : 1}
                       navRow={zeileIdx}
                       onSpeichern={(neu) => void speicherePruefung(z.schuelerId, neu)}
