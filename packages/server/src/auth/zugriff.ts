@@ -33,6 +33,30 @@ export function hatLehrauftrag(
   return row !== undefined;
 }
 
+/**
+ * Darf die Identität Noten für (Fach × Klasse × Halbjahr) erfassen/ändern?
+ * - admin: überall
+ * - Klassenleitung der Klasse: alle Fächer ihrer Klasse (sie verantwortet das
+ *   Zeugnis und darf die Maske ohnehin für alle Fächer öffnen)
+ * - Fachlehrkraft: nur mit passendem Lehrauftrag
+ *
+ * Deckt sich bewusst mit der Leseberechtigung von `GET /api/eingabe` — sonst
+ * kann jemand die Maske öffnen, aber nichts speichern.
+ */
+export function darfNotenBearbeiten(
+  db: DB,
+  ident: Identitaet,
+  fachSchluessel: string,
+  klasseId: number,
+  halbjahr: number,
+): boolean {
+  return (
+    ident.rolle === 'admin' ||
+    istKlassenleitung(db, ident.lehrkraftId, klasseId) ||
+    hatLehrauftrag(db, ident.lehrkraftId, fachSchluessel, klasseId, halbjahr)
+  );
+}
+
 /** Ist die Lehrkraft Klassenleitung der Klasse? */
 export function istKlassenleitung(db: DB, lehrkraftId: number, klasseId: number): boolean {
   const row = db
