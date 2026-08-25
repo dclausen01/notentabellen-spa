@@ -3,7 +3,7 @@ import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import type { Authenticator } from '../auth/authenticator.js';
 import {
-  hatLehrauftrag,
+  darfNotenBearbeiten,
   istKlassenleitung,
   klasseVonSchueler,
   lehrkraftVonLoginSub,
@@ -245,21 +245,22 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
       return reply.code(400).send({ fehler: 'klasseId, fach und halbjahr erforderlich' });
     }
     const id = ident(req);
-    const erlaubt =
-      id.rolle === 'admin' ||
-      istKlassenleitung(db, id.lehrkraftId, klasseId) ||
-      hatLehrauftrag(db, id.lehrkraftId, q.fach, klasseId, halbjahr);
-    if (!erlaubt) return verboten(reply);
+    // Lesen und Schreiben sind bewusst deckungsgleich (Admin, Klassenleitung der
+    // Klasse, Fachlehrkraft mit Lehrauftrag) — wer die Maske öffnen darf, darf
+    // auch speichern. Das Flag geht mit, damit der Client die Felder sperren
+    // kann, falls die Rechte serverseitig einmal enger gefasst werden.
+    const darfBearbeiten = darfNotenBearbeiten(db, id, q.fach, klasseId, halbjahr);
+    if (!darfBearbeiten) return verboten(reply);
     try {
       const maske = baueEingabemaske(db, klasseId, q.fach, halbjahr);
       const vorwerte = vorwerteFuer(db, klasseId, q.fach, halbjahr);
-      return { ...maske, ...(vorwerte.label ? { vorwerte } : {}) };
+      return { ...maske, darfBearbeiten, ...(vorwerte.label ? { vorwerte } : {}) };
     } catch (e) {
       return reply.code(404).send({ fehler: (e as Error).message });
     }
   });
 
-  // --- Noten speichern (nur mit passendem Lehrauftrag bzw. Admin) ---
+  // --- Noten speichern (Admin, Klassenleitung der Klasse, Lehrauftrag) ---
   app.put('/api/noten/komponente', async (req, reply) => {
     const b = req.body as Partial<{
       schuelerId: number;
@@ -288,7 +289,7 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
       return reply.code(404).send({ fehler: 'Schüler oder Komponente nicht gefunden' });
     }
     const id = ident(req);
-    if (id.rolle !== 'admin' && !hatLehrauftrag(db, id.lehrkraftId, fachSchluessel, klasseId, b.halbjahr)) {
+    if (!darfNotenBearbeiten(db, id, fachSchluessel, klasseId, b.halbjahr)) {
       return verboten(reply);
     }
     speichereKomponentennote(db, {
@@ -321,7 +322,7 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
       return reply.code(404).send({ fehler: 'Schüler nicht gefunden' });
     }
     const id = ident(req);
-    if (id.rolle !== 'admin' && !hatLehrauftrag(db, id.lehrkraftId, b.fach, klasseId, b.halbjahr)) {
+    if (!darfNotenBearbeiten(db, id, b.fach, klasseId, b.halbjahr)) {
       return verboten(reply);
     }
     let fId: number;
@@ -359,7 +360,7 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
     const klasseId = klasseVonSchueler(db, b.schuelerId);
     if (klasseId === undefined) return reply.code(404).send({ fehler: 'Schüler nicht gefunden' });
     const id = ident(req);
-    if (id.rolle !== 'admin' && !hatLehrauftrag(db, id.lehrkraftId, b.fach, klasseId, b.halbjahr)) {
+    if (!darfNotenBearbeiten(db, id, b.fach, klasseId, b.halbjahr)) {
       return verboten(reply);
     }
     let fId: number;
@@ -403,7 +404,7 @@ export function baueApp({ db, authenticator, jwtSecret, webRoot }: AppOptions): 
     const klasseId = klasseVonSchueler(db, b.schuelerId);
     if (klasseId === undefined) return reply.code(404).send({ fehler: 'Schüler nicht gefunden' });
     const id = ident(req);
-    if (id.rolle !== 'admin' && !hatLehrauftrag(db, id.lehrkraftId, 'WPK', klasseId, b.halbjahr)) {
+    if (!darfNotenBearbeiten(db, id, 'WPK', klasseId, b.halbjahr)) {
       return verboten(reply);
     }
     speichereWpkKurs(db, b.schuelerId, b.halbjahr, b.wpkKursId ?? null);

@@ -136,6 +136,59 @@ describe('Klassenleitung: liest alle Fächer + Zeugnis der eigenen Klasse', () =
   });
 });
 
+// Regressionstest zur Rückmeldung aus dem Praxistest: die Klassenleitung konnte
+// die Eingabemaske für alle Fächer öffnen, aber nichts speichern (403) — die
+// Eingaben verpufften still (LF3 „rechnet nicht", WPK „nicht anklickbar").
+describe('Klassenleitung darf in der eigenen Klasse auch speichern', () => {
+  it('speichert eine Direktnote ohne eigenen Lehrauftrag', async () => {
+    const token = await login('kl');
+    const res = await req('PUT', '/api/noten/direkt', token, {
+      schuelerId: schueler, fach: 'LF1', halbjahr: 2, wert: 11, istNa: false,
+    });
+    expect(res.statusCode).toBe(204);
+  });
+
+  it('speichert eine Komponentennote (LF3)', async () => {
+    const token = await login('kl');
+    const komponenteId = (
+      db
+        .prepare(
+          `SELECT k.id FROM komponente k
+             JOIN bewertungsschema bs ON bs.id = k.schema_id
+             JOIN fach f ON f.id = bs.fach_id
+            WHERE f.schluessel = 'LF3' AND k.schluessel = 'paedagogik' AND bs.halbjahr = 1
+              AND bs.bildungsgang_id = (SELECT bildungsgang_id FROM klasse WHERE id = ?)`,
+        )
+        .get(klasse) as { id: number }
+    ).id;
+    const res = await req('PUT', '/api/noten/komponente', token, {
+      schuelerId: schueler, komponenteId, halbjahr: 1, wert: 12, istNa: false,
+    });
+    expect(res.statusCode).toBe(204);
+  });
+
+  it('setzt einen WPK-Kurs', async () => {
+    const token = await login('kl');
+    const kursId = (db.prepare('SELECT id FROM wpk_kurs LIMIT 1').get() as { id: number }).id;
+    const res = await req('PUT', '/api/noten/wpk-kurs', token, {
+      schuelerId: schueler, halbjahr: 1, wpkKursId: kursId,
+    });
+    expect(res.statusCode).toBe(204);
+  });
+
+  it('Eingabemaske meldet Schreibrecht (darfBearbeiten)', async () => {
+    const kl = JSON.parse(
+      (await req('GET', `/api/eingabe?klasseId=${klasse}&fach=LF3&halbjahr=1`, await login('kl'))).body,
+    );
+    expect(kl.darfBearbeiten).toBe(true);
+    // Fachlehrkraft: nur im beauftragten Fach/Halbjahr.
+    const lk = JSON.parse(
+      (await req('GET', `/api/eingabe?klasseId=${klasse}&fach=LF1&halbjahr=1`, await login('fachlk'))).body,
+    );
+    expect(lk.darfBearbeiten).toBe(true);
+  });
+});
+
 describe('Klassenwechsel & Querwechsler: nur Admin', () => {
   it('Fachlehrkraft darf nicht verschieben (403)', async () => {
     const token = await login('fachlk');
